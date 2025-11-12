@@ -43,7 +43,8 @@ export default function Add() {
         receiver: form.receiver,
         act_number: form.act_number,
         pdf_url: pdfUrl,
-        photo_url: photoUrl
+        photo_url: photoUrl,
+        user_id: user.id
       }])
       if (error) throw error
       alert('Act added')
