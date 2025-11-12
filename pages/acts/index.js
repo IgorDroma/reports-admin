@@ -57,7 +57,7 @@ export default function ActsPage() {
               <td className="border px-2 py-1">
                 {act.pdf_url ? (
                   <a
-                    href={getFileUrl(act.pdf_url)}
+                    href={act.pdf_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
@@ -69,7 +69,7 @@ export default function ActsPage() {
               <td className="border px-2 py-1">
                 {act.photo_url ? (
                   <a
-                    href={getFileUrl(act.photo_url)}
+                    href={act.photo_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
