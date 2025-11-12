@@ -4,26 +4,31 @@ import Head from "next/head";
 
 export default function ActsPage() {
   const [acts, setActs] = useState([]);
+  const [files, setFiles] = useState([]); // всі файли окремо
   const [selectedAct, setSelectedAct] = useState(null);
+  const [newFiles, setNewFiles] = useState([]); // файли для завантаження
 
   useEffect(() => {
     fetchActs();
+    fetchFiles();
   }, []);
 
   async function fetchActs() {
-    const { data, error } = await supabase.from("acts").select(`
-      *,
-      acts_files(*)  // якщо є окрема таблиця для файлів
-    `);
+    const { data, error } = await supabase.from("acts").select("*");
     if (error) console.error(error);
     else setActs(data);
+  }
+
+  async function fetchFiles() {
+    const { data, error } = await supabase.from("acts_files").select("*");
+    if (error) console.error(error);
+    else setFiles(data);
   }
 
   // --------------------
   // Видалення файлу
   // --------------------
   async function handleDeleteFile(file) {
-    // 1️⃣ Видаляємо з бакету
     const { error: storageError } = await supabase
       .storage
       .from("acts-files")
@@ -34,7 +39,6 @@ export default function ActsPage() {
       return;
     }
 
-    // 2️⃣ Видаляємо запис у таблиці
     const { error: dbError } = await supabase
       .from("acts_files")
       .delete()
@@ -45,22 +49,41 @@ export default function ActsPage() {
       return;
     }
 
-    // 3️⃣ Оновлюємо стан на сторінці
-    setActs((prev) =>
-      prev.map((act) => {
-        if (act.id === file.act_id) {
-          return {
-            ...act,
-            acts_files: act.acts_files.filter((f) => f.id !== file.id),
-          };
-        }
-        return act;
-      })
-    );
+    setFiles((prev) => prev.filter((f) => f.id !== file.id));
   }
 
   // --------------------
-  // Оновлення інформації про акт
+  // Додавання нових файлів
+  // --------------------
+  async function handleUploadFiles() {
+    for (let file of newFiles) {
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from("acts-files")
+        .upload(file.name, file);
+
+      if (uploadError) {
+        console.error(uploadError);
+        continue;
+      }
+
+      const { error: dbError } = await supabase
+        .from("acts_files")
+        .insert({
+          act_id: selectedAct.id,
+          name: file.name,
+          path: uploadData.path
+        });
+
+      if (dbError) console.error(dbError);
+    }
+
+    setNewFiles([]);
+    fetchFiles();
+  }
+
+  // --------------------
+  // Оновлення акту
   // --------------------
   async function handleUpdateAct(updatedAct) {
     const { data, error } = await supabase
@@ -78,7 +101,6 @@ export default function ActsPage() {
       return;
     }
 
-    // Оновлюємо стан на сторінці
     setActs((prev) =>
       prev.map((act) => (act.id === updatedAct.id ? { ...act, ...updatedAct } : act))
     );
@@ -87,11 +109,7 @@ export default function ActsPage() {
 
   return (
     <div className="p-6">
-      <Head>
-        {/* Підключення Tailwind через Play CDN */}
-        <script src="https://cdn.tailwindcss.com"></script>
-      </Head>
-
+      
       <h1 className="text-2xl font-bold mb-4">Акти</h1>
 
       {/* Таблиця актів */}
@@ -112,18 +130,20 @@ export default function ActsPage() {
               <td className="border px-2 py-1">{act.date}</td>
               <td className="border px-2 py-1">{act.recipient}</td>
               <td className="border px-2 py-1">
-                {act.acts_files?.map((file) => (
-                  <div key={file.id} className="flex items-center space-x-2">
-                    <a
-                      href={`https://YOUR_SUPABASE_BUCKET_URL/${file.path}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 underline"
-                    >
-                      {file.name}
-                    </a>
-                  </div>
-                ))}
+                {files
+                  .filter((f) => f.act_id === act.id)
+                  .map((file) => (
+                    <div key={file.id} className="flex items-center space-x-2">
+                      <a
+                        href={`https://YOUR_SUPABASE_BUCKET_URL/${file.path}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 underline"
+                      >
+                        {file.name}
+                      </a>
+                    </div>
+                  ))}
               </td>
               <td className="border px-2 py-1">
                 <button
@@ -181,25 +201,44 @@ export default function ActsPage() {
               />
             </div>
 
-            {/* Файли акту */}
-            {selectedAct.acts_files?.map((file) => (
-              <div key={file.id} className="flex items-center justify-between mb-2">
-                <a
-                  href={`https://YOUR_SUPABASE_BUCKET_URL/${file.path}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 underline"
-                >
-                  {file.name}
-                </a>
-                <button
-                  onClick={() => handleDeleteFile(file)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  Видалити
-                </button>
-              </div>
-            ))}
+            {/* Список файлів акту */}
+            {files
+              .filter((f) => f.act_id === selectedAct.id)
+              .map((file) => (
+                <div key={file.id} className="flex items-center justify-between mb-2">
+                  <a
+                    href={`https://YOUR_SUPABASE_BUCKET_URL/${file.path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline"
+                  >
+                    {file.name}
+                  </a>
+                  <button
+                    onClick={() => handleDeleteFile(file)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Видалити
+                  </button>
+                </div>
+              ))}
+
+            {/* Завантаження нових файлів */}
+            <div className="mb-2">
+              <label className="block text-sm font-medium">Додати файли</label>
+              <input
+                type="file"
+                multiple
+                onChange={(e) => setNewFiles(Array.from(e.target.files))}
+                className="border p-1 w-full"
+              />
+              <button
+                onClick={handleUploadFiles}
+                className="mt-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+              >
+                Завантажити
+              </button>
+            </div>
 
             <div className="flex justify-end mt-4 space-x-2">
               <button
@@ -210,7 +249,7 @@ export default function ActsPage() {
               </button>
               <button
                 onClick={() => handleUpdateAct(selectedAct)}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
               >
                 Зберегти
               </button>
