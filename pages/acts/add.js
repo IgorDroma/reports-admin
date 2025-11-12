@@ -1,20 +1,21 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
-import { useRouter } from 'next/router'
+import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
+import { FileHelper } from "../../lib/fileHelper";
+import { useRouter } from "next/router";
 
 export default function Add() {
-  const [user, setUser] = useState(null)
-  const [form, setForm] = useState({ date:'', amount:'', receiver:'', act_number:'', pdf:null, photo:null })
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [user, setUser] = useState(null);
+  const [form, setForm] = useState({ date: "", amount: "", receiver: "", act_number: "", pdf: null, photo: null });
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null))
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => listener?.subscription?.unsubscribe?.()
-  }, [])
+      setUser(session?.user ?? null);
+    });
+    return () => listener?.subscription?.unsubscribe?.();
+  }, []);
 
   if (!user)
     return (
@@ -23,45 +24,40 @@ export default function Add() {
           Please sign in on <a href="/" className="text-blue-500 underline">login</a>
         </p>
       </div>
-    )
+    );
 
   const handleChange = (e) => {
-    const { name, value, files } = e.target
-    setForm(prev => ({ ...prev, [name]: files ? files[0] : value }))
-  }
-
-  const uploadFile = async (file, folder) => {
-    const fileName = `${folder}/${Date.now()}_${file.name.replaceAll(' ','_')}`
-    const { data, error } = await supabase.storage.from('acts-files').upload(fileName, file)
-    if (error) throw error
-    const { data: publicUrl } = supabase.storage.from('acts-files').getPublicUrl(fileName)
-    return publicUrl.publicUrl
-  }
+    const { name, value, files } = e.target;
+    setForm((prev) => ({ ...prev, [name]: files ? files[0] : value }));
+  };
 
   const onSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
     try {
-      const pdfUrl = form.pdf ? await uploadFile(form.pdf, 'pdfs') : null
-      const photoUrl = form.photo ? await uploadFile(form.photo, 'photos') : null
-      const { error } = await supabase.from('acts').insert([{
-        date: form.date,
-        amount: form.amount,
-        receiver: form.receiver,
-        act_number: form.act_number,
-        pdf_url: pdfUrl,
-        photo_url: photoUrl,
-        user_id: user.id
-      }])
-      if (error) throw error
-      alert('Act added')
-      router.push('/acts')
+      const pdfData = form.pdf ? await FileHelper.uploadFile(form.pdf, "pdfs", form.act_number) : {};
+      const photoData = form.photo ? await FileHelper.uploadFile(form.photo, "photos", form.act_number) : {};
+
+      const { error } = await supabase.from("acts").insert([
+        {
+          date: form.date,
+          amount: form.amount,
+          receiver: form.receiver,
+          act_number: form.act_number,
+          pdf_url: pdfData.url ?? null,
+          photo_url: photoData.url ?? null,
+          user_id: user.id,
+        },
+      ]);
+      if (error) throw error;
+      alert("Act added");
+      router.push("/acts");
     } catch (err) {
-      alert('Error: ' + err.message)
+      alert("Error: " + err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="max-w-lg mx-auto p-6 mt-10 bg-white shadow-lg rounded-lg">
@@ -74,7 +70,7 @@ export default function Add() {
             type="date"
             value={form.date}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border border-gray-300 rounded px-3 py-2"
             required
           />
         </div>
@@ -85,8 +81,7 @@ export default function Add() {
             type="number"
             value={form.amount}
             onChange={handleChange}
-            placeholder="Amount"
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border border-gray-300 rounded px-3 py-2"
             required
           />
         </div>
@@ -97,8 +92,7 @@ export default function Add() {
             type="text"
             value={form.receiver}
             onChange={handleChange}
-            placeholder="Receiver"
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border border-gray-300 rounded px-3 py-2"
             required
           />
         </div>
@@ -109,39 +103,26 @@ export default function Add() {
             type="text"
             value={form.act_number}
             onChange={handleChange}
-            placeholder="Act Number"
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border border-gray-300 rounded px-3 py-2"
             required
           />
         </div>
         <div>
           <label className="block font-medium mb-1">PDF File</label>
-          <input
-            name="pdf"
-            type="file"
-            accept="application/pdf"
-            onChange={handleChange}
-            className="w-full"
-          />
+          <input name="pdf" type="file" accept="application/pdf" onChange={handleChange} className="w-full" />
         </div>
         <div>
           <label className="block font-medium mb-1">Photo</label>
-          <input
-            name="photo"
-            type="file"
-            accept="image/*"
-            onChange={handleChange}
-            className="w-full"
-          />
+          <input name="photo" type="file" accept="image/*" onChange={handleChange} className="w-full" />
         </div>
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
         >
-          {loading ? 'Uploading...' : 'Save'}
+          {loading ? "Uploading..." : "Save"}
         </button>
       </form>
     </div>
-  )
+  );
 }
