@@ -122,9 +122,6 @@ export default function ActsPage() {
 
   return (
     <div className="p-6">
-      <Head>
-        <script src="https://cdn.tailwindcss.com"></script>
-      </Head>
 
       <h1 className="text-2xl font-bold mb-4">Акти</h1>
 
@@ -153,7 +150,7 @@ export default function ActsPage() {
               <td className="border px-2 py-1">
                 {act.pdf_url ? (
                   <a
-                    href={`https://YOUR_SUPABASE_BUCKET_URL/${act.pdf_url}`}
+                    href={act.pdf_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
@@ -167,7 +164,7 @@ export default function ActsPage() {
               <td className="border px-2 py-1">
                 {act.photo_url ? (
                   <a
-                    href={`https://YOUR_SUPABASE_BUCKET_URL/${act.photo_url}`}
+                    href={act.photo_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
@@ -251,7 +248,7 @@ export default function ActsPage() {
               {selectedAct.pdf_url && (
                 <div className="flex items-center space-x-2 mb-1">
                   <a
-                    href={`https://YOUR_SUPABASE_BUCKET_URL/${selectedAct.pdf_url}`}
+                    href={selectedAct.pdf_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
@@ -286,7 +283,7 @@ export default function ActsPage() {
               {selectedAct.photo_url && (
                 <div className="flex items-center space-x-2 mb-1">
                   <a
-                    href={`https://YOUR_SUPABASE_BUCKET_URL/${selectedAct.photo_url}`}
+                    href={selectedAct.photo_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
