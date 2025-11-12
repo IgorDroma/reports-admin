@@ -35,7 +35,7 @@ export default function ActsPage() {
     let pdfUrl = selectedAct.pdf_url;
     let photoUrl = selectedAct.photo_url;
 
-    // якщо завантажено новий PDF
+    // Завантаження нового PDF
     if (pdfFile) {
       const { data, error } = await supabase.storage
         .from("acts-files")
@@ -44,7 +44,7 @@ export default function ActsPage() {
       else pdfUrl = data.path;
     }
 
-    // якщо завантажено нове фото
+    // Завантаження нового фото
     if (photoFile) {
       const { data, error } = await supabase.storage
         .from("acts-files")
@@ -79,6 +79,14 @@ export default function ActsPage() {
     if (!confirm("Видалити цей акт?")) return;
     setDeleting(true);
 
+    // Видалення файлів з бакету
+    if (selectedAct.pdf_url) {
+      await supabase.storage.from("acts-files").remove([selectedAct.pdf_url]);
+    }
+    if (selectedAct.photo_url) {
+      await supabase.storage.from("acts-files").remove([selectedAct.photo_url]);
+    }
+
     const { error } = await supabase.from("acts").delete().eq("id", selectedAct.id);
     if (error) alert(error.message);
     else {
@@ -87,6 +95,24 @@ export default function ActsPage() {
     }
 
     setDeleting(false);
+  };
+
+  const handleDeleteFile = async (type) => {
+    if (!selectedAct) return;
+    let filePath = type === "pdf" ? selectedAct.pdf_url : selectedAct.photo_url;
+    if (!filePath) return;
+
+    const { error } = await supabase.storage.from("acts-files").remove([filePath]);
+    if (error) alert(error.message);
+    else {
+      const updateData = type === "pdf" ? { pdf_url: null } : { photo_url: null };
+      const { error: dbError } = await supabase
+        .from("acts")
+        .update(updateData)
+        .eq("id", selectedAct.id);
+      if (dbError) alert(dbError.message);
+      else setSelectedAct({ ...selectedAct, ...updateData });
+    }
   };
 
   const publicUrl = (path) => {
@@ -99,8 +125,8 @@ export default function ActsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl mb-4">Акти видачі</h1>
-      <table className="min-w-full border">
+      <h1 className="text-2xl font-bold mb-4">Акти видачі</h1>
+      <table className="min-w-full border border-gray-300">
         <thead>
           <tr className="bg-gray-100">
             <th className="border p-2">Дата</th>
@@ -114,31 +140,27 @@ export default function ActsPage() {
         </thead>
         <tbody>
           {acts.map((act) => (
-            <tr key={act.id}>
+            <tr key={act.id} className="hover:bg-gray-50">
               <td className="border p-2">{act.date}</td>
               <td className="border p-2">{act.amount}</td>
               <td className="border p-2">{act.receiver}</td>
               <td className="border p-2">{act.act_number}</td>
               <td className="border p-2 text-center">
                 {act.pdf_url ? (
-                  <a href={publicUrl(act.pdf_url)} target="_blank" className="text-blue-600 hover:underline">
+                  <a href={publicUrl(act.pdf_url)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
                     PDF
                   </a>
-                ) : (
-                  "-"
-                )}
+                ) : "-"}
               </td>
               <td className="border p-2 text-center">
                 {act.photo_url ? (
                   <img src={publicUrl(act.photo_url)} alt="Фото" className="h-12 mx-auto rounded" />
-                ) : (
-                  "-"
-                )}
+                ) : "-"}
               </td>
               <td className="border p-2 text-center">
                 <button
                   onClick={() => handleEdit(act)}
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 hover:underline font-medium"
                 >
                   Редагувати
                 </button>
@@ -152,47 +174,56 @@ export default function ActsPage() {
       {selectedAct && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative">
-            <h2 className="text-xl mb-4">Редагування акту #{selectedAct.act_number}</h2>
+            <h2 className="text-xl font-semibold mb-4">Редагування акту #{selectedAct.act_number}</h2>
 
             <div className="space-y-3">
               <input
                 type="date"
                 value={selectedAct.date || ""}
                 onChange={(e) => setSelectedAct({ ...selectedAct, date: e.target.value })}
-                className="border p-2 w-full"
+                className="border p-2 w-full rounded"
               />
               <input
                 type="number"
                 placeholder="Сума"
                 value={selectedAct.amount || ""}
                 onChange={(e) => setSelectedAct({ ...selectedAct, amount: e.target.value })}
-                className="border p-2 w-full"
+                className="border p-2 w-full rounded"
               />
               <input
                 type="text"
                 placeholder="Отримувач"
                 value={selectedAct.receiver || ""}
                 onChange={(e) => setSelectedAct({ ...selectedAct, receiver: e.target.value })}
-                className="border p-2 w-full"
+                className="border p-2 w-full rounded"
               />
               <input
                 type="text"
                 placeholder="№ Акту"
                 value={selectedAct.act_number || ""}
                 onChange={(e) => setSelectedAct({ ...selectedAct, act_number: e.target.value })}
-                className="border p-2 w-full"
+                className="border p-2 w-full rounded"
               />
 
               <div>
                 <label className="block font-medium">PDF файл:</label>
                 {selectedAct.pdf_url && (
-                  <a
-                    href={publicUrl(selectedAct.pdf_url)}
-                    target="_blank"
-                    className="text-blue-600 underline"
-                  >
-                    Переглянути
-                  </a>
+                  <div className="flex items-center gap-2 mb-1">
+                    <a
+                      href={publicUrl(selectedAct.pdf_url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 underline"
+                    >
+                      Переглянути
+                    </a>
+                    <button
+                      onClick={() => handleDeleteFile("pdf")}
+                      className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                    >
+                      🗑 Видалити PDF
+                    </button>
+                  </div>
                 )}
                 <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files[0])} />
               </div>
@@ -200,17 +231,25 @@ export default function ActsPage() {
               <div>
                 <label className="block font-medium">Фото:</label>
                 {selectedAct.photo_url && (
-                  <img
-                    src={publicUrl(selectedAct.photo_url)}
-                    alt="Фото"
-                    className="h-20 rounded mb-2"
-                  />
+                  <div className="flex items-center gap-2 mb-1">
+                    <img
+                      src={publicUrl(selectedAct.photo_url)}
+                      alt="Фото"
+                      className="h-20 rounded"
+                    />
+                    <button
+                      onClick={() => handleDeleteFile("photo")}
+                      className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                    >
+                      🗑 Видалити Фото
+                    </button>
+                  </div>
                 )}
                 <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files[0])} />
               </div>
             </div>
 
-            <div className="mt-5 flex justify-between">
+            <div className="mt-5 flex justify-between items-center">
               <button
                 onClick={handleDelete}
                 disabled={deleting}
