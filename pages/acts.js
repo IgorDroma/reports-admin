@@ -1,75 +1,243 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
-export default function Acts() {
-  const [user, setUser] = useState(null)
-  const [acts, setActs] = useState([])
-  const [page, setPage] = useState(1)
-  const [perPage] = useState(50)
-  const [total, setTotal] = useState(null)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => listener?.subscription?.unsubscribe?.()
-  }, [])
+export default function ActsPage() {
+  const [acts, setActs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedAct, setSelectedAct] = useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    fetchPage()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page])
+    loadActs();
+  }, []);
 
-  async function fetchPage() {
-    const from = (page-1)*perPage
-    const to = from + perPage - 1
-    const { data, error, count } = await supabase
-      .from('acts')
-      .select('*', { count: 'exact' })
-      .order('date', { ascending: false })
-      .range(from, to)
-    if (error) { alert(error.message); return }
-    setActs(data || [])
-    setTotal(count)
-  }
+  const loadActs = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("acts").select("*").order("date", { ascending: false });
+    if (error) console.error(error);
+    else setActs(data);
+    setLoading(false);
+  };
 
-  if (!user) return <div className="container"><p>Please sign in on <a href="/">login</a></p></div>
+  const handleEdit = (act) => {
+    setSelectedAct({ ...act });
+    setPdfFile(null);
+    setPhotoFile(null);
+  };
 
-  const totalPages = total ? Math.ceil(total / perPage) : null
+  const handleSave = async () => {
+    if (!selectedAct) return;
+    setSaving(true);
+
+    let pdfUrl = selectedAct.pdf_url;
+    let photoUrl = selectedAct.photo_url;
+
+    // якщо завантажено новий PDF
+    if (pdfFile) {
+      const { data, error } = await supabase.storage
+        .from("acts-files")
+        .upload(`pdfs/${Date.now()}_${pdfFile.name}`, pdfFile, { upsert: true });
+      if (error) alert(error.message);
+      else pdfUrl = data.path;
+    }
+
+    // якщо завантажено нове фото
+    if (photoFile) {
+      const { data, error } = await supabase.storage
+        .from("acts-files")
+        .upload(`photos/${Date.now()}_${photoFile.name}`, photoFile, { upsert: true });
+      if (error) alert(error.message);
+      else photoUrl = data.path;
+    }
+
+    const { error } = await supabase
+      .from("acts")
+      .update({
+        date: selectedAct.date,
+        amount: selectedAct.amount,
+        receiver: selectedAct.receiver,
+        act_number: selectedAct.act_number,
+        pdf_url: pdfUrl,
+        photo_url: photoUrl,
+      })
+      .eq("id", selectedAct.id);
+
+    if (error) alert(error.message);
+    else {
+      await loadActs();
+      setSelectedAct(null);
+    }
+
+    setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedAct) return;
+    if (!confirm("Видалити цей акт?")) return;
+    setDeleting(true);
+
+    const { error } = await supabase.from("acts").delete().eq("id", selectedAct.id);
+    if (error) alert(error.message);
+    else {
+      await loadActs();
+      setSelectedAct(null);
+    }
+
+    setDeleting(false);
+  };
+
+  const publicUrl = (path) => {
+    if (!path) return null;
+    const { data } = supabase.storage.from("acts-files").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  if (loading) return <p className="p-4">Завантаження...</p>;
 
   return (
-    <div className="container">
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-        <h2>Acts</h2>
-        <div>
-          <a href="/add">Add act</a>
-        </div>
-      </div>
-
-      <table className="table" style={{marginTop:12}}>
-        <thead><tr><th>Date</th><th>Amount</th><th>Receiver</th><th>Act#</th><th>PDF</th><th>Photo</th></tr></thead>
+    <div className="p-6">
+      <h1 className="text-2xl mb-4">Акти видачі</h1>
+      <table className="min-w-full border">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border p-2">Дата</th>
+            <th className="border p-2">Сума</th>
+            <th className="border p-2">Отримувач</th>
+            <th className="border p-2">№ Акту</th>
+            <th className="border p-2">PDF</th>
+            <th className="border p-2">Фото</th>
+            <th className="border p-2">Дії</th>
+          </tr>
+        </thead>
         <tbody>
-          {acts.map(a => (
-            <tr key={a.id}>
-              <td>{a.date}</td>
-              <td>{a.amount}</td>
-              <td>{a.receiver}</td>
-              <td>{a.act_number}</td>
-              <td>{a.pdf_url ? <a href={a.pdf_url} target="_blank" rel="noreferrer">PDF</a> : '-'}</td>
-              <td>{a.photo_url ? <a href={a.photo_url} target="_blank" rel="noreferrer">Photo</a> : '-'}</td>
+          {acts.map((act) => (
+            <tr key={act.id}>
+              <td className="border p-2">{act.date}</td>
+              <td className="border p-2">{act.amount}</td>
+              <td className="border p-2">{act.receiver}</td>
+              <td className="border p-2">{act.act_number}</td>
+              <td className="border p-2 text-center">
+                {act.pdf_url ? (
+                  <a href={publicUrl(act.pdf_url)} target="_blank" className="text-blue-600 hover:underline">
+                    PDF
+                  </a>
+                ) : (
+                  "-"
+                )}
+              </td>
+              <td className="border p-2 text-center">
+                {act.photo_url ? (
+                  <img src={publicUrl(act.photo_url)} alt="Фото" className="h-12 mx-auto rounded" />
+                ) : (
+                  "-"
+                )}
+              </td>
+              <td className="border p-2 text-center">
+                <button
+                  onClick={() => handleEdit(act)}
+                  className="text-blue-600 hover:underline"
+                >
+                  Редагувати
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {totalPages ? (
-        <div style={{marginTop:12}}>
-          <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1}>Prev</button>
-          <span style={{margin:'0 8px'}}>Page {page} of {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages}>Next</button>
+      {/* МОДАЛЬНЕ ВІКНО */}
+      {selectedAct && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative">
+            <h2 className="text-xl mb-4">Редагування акту #{selectedAct.act_number}</h2>
+
+            <div className="space-y-3">
+              <input
+                type="date"
+                value={selectedAct.date || ""}
+                onChange={(e) => setSelectedAct({ ...selectedAct, date: e.target.value })}
+                className="border p-2 w-full"
+              />
+              <input
+                type="number"
+                placeholder="Сума"
+                value={selectedAct.amount || ""}
+                onChange={(e) => setSelectedAct({ ...selectedAct, amount: e.target.value })}
+                className="border p-2 w-full"
+              />
+              <input
+                type="text"
+                placeholder="Отримувач"
+                value={selectedAct.receiver || ""}
+                onChange={(e) => setSelectedAct({ ...selectedAct, receiver: e.target.value })}
+                className="border p-2 w-full"
+              />
+              <input
+                type="text"
+                placeholder="№ Акту"
+                value={selectedAct.act_number || ""}
+                onChange={(e) => setSelectedAct({ ...selectedAct, act_number: e.target.value })}
+                className="border p-2 w-full"
+              />
+
+              <div>
+                <label className="block font-medium">PDF файл:</label>
+                {selectedAct.pdf_url && (
+                  <a
+                    href={publicUrl(selectedAct.pdf_url)}
+                    target="_blank"
+                    className="text-blue-600 underline"
+                  >
+                    Переглянути
+                  </a>
+                )}
+                <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files[0])} />
+              </div>
+
+              <div>
+                <label className="block font-medium">Фото:</label>
+                {selectedAct.photo_url && (
+                  <img
+                    src={publicUrl(selectedAct.photo_url)}
+                    alt="Фото"
+                    className="h-20 rounded mb-2"
+                  />
+                )}
+                <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files[0])} />
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-between">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+              >
+                {deleting ? "Видалення..." : "Видалити акт"}
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedAct(null)}
+                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                >
+                  Закрити
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  {saving ? "Збереження..." : "Зберегти"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      ) : null}
+      )}
     </div>
-  )
+  );
 }
