@@ -25,9 +25,6 @@ export default function ActEditPage() {
     else setAct(data);
   }
 
-  // --------------------
-  // Оновлення акту
-  // --------------------
   async function handleUpdateAct() {
     const { error } = await supabase
       .from("acts")
@@ -43,13 +40,16 @@ export default function ActEditPage() {
     else router.push("/acts");
   }
 
+  const getFileUrl = (path) =>
+    path ? supabase.storage.from("acts-files").getPublicUrl(path).data.publicUrl : null;
+
   // --------------------
-  // Завантаження PDF або фото
+  // Завантаження файлів
   // --------------------
   async function handleUploadFile(type, file) {
     if (!file) return;
     const folder = type === "pdf" ? "pdfs" : "photos";
-    const filePath = `${folder}/${act.id}-${file.name.replaceAll(" ", "_")}`;
+    const filePath = `${folder}/${act.id}-${file.name}`;
 
     const { error: uploadError } = await supabase
       .storage
@@ -71,11 +71,14 @@ export default function ActEditPage() {
   }
 
   // --------------------
-  // Видалення PDF або фото
+  // Видалення файлів
   // --------------------
   async function handleDeleteFile(type) {
-    const filePath = type === "pdf" ? act.pdf_url : act.photo_url;
-    if (!filePath) return;
+    const path = type === "pdf" ? act.pdf_url : act.photo_url;
+    if (!path) return;
+
+    // Беремо тільки внутрішній шлях (pdfs/... або photos/...)
+    const filePath = path.includes("://") ? path.split("/").slice(-2).join("/") : path;
 
     const { error: storageError } = await supabase
       .storage
@@ -96,19 +99,12 @@ export default function ActEditPage() {
     else setAct({ ...act, [type + "_url"]: null });
   }
 
-  // --------------------
-  // Отримання публічного URL для перегляду
-  // --------------------
-  const getFileUrl = (path) =>
-    path ? supabase.storage.from("acts-files").getPublicUrl(path).data.publicUrl : null;
-
   if (!act) return <div className="p-6">Loading...</div>;
 
   return (
     <div className="p-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold mb-6 text-center">Редагування акту №{act.act_number}</h1>
+      <h1 className="text-2xl font-bold mb-6">Редагування акту №{act.act_number}</h1>
 
-      {/* Дата */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Дата</label>
         <input
@@ -119,7 +115,6 @@ export default function ActEditPage() {
         />
       </div>
 
-      {/* Номер акту */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Номер акту</label>
         <input
@@ -130,7 +125,6 @@ export default function ActEditPage() {
         />
       </div>
 
-      {/* Отримувач */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Отримувач</label>
         <input
@@ -141,7 +135,6 @@ export default function ActEditPage() {
         />
       </div>
 
-      {/* Сума */}
       <div className="mb-4">
         <label className="block font-medium mb-1">Сума</label>
         <input
@@ -161,13 +154,13 @@ export default function ActEditPage() {
               href={getFileUrl(act.pdf_url)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline"
+              className="text-blue-500 underline"
             >
               Поточний PDF
             </a>
             <button
               onClick={() => handleDeleteFile("pdf")}
-              className="text-red-600 hover:text-red-800 px-2 py-1 border rounded"
+              className="text-red-500 hover:text-red-700"
             >
               Видалити
             </button>
@@ -190,13 +183,13 @@ export default function ActEditPage() {
               href={getFileUrl(act.photo_url)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline"
+              className="text-blue-500 underline"
             >
               Поточне фото
             </a>
             <button
               onClick={() => handleDeleteFile("photo")}
-              className="text-red-600 hover:text-red-800 px-2 py-1 border rounded"
+              className="text-red-500 hover:text-red-700"
             >
               Видалити
             </button>
@@ -210,7 +203,6 @@ export default function ActEditPage() {
         />
       </div>
 
-      {/* Кнопки */}
       <div className="flex justify-between mt-6">
         <button
           onClick={() => router.push("/acts")}
