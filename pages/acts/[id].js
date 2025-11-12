@@ -142,7 +142,7 @@ export default function ActEditPage() {
         {act.pdf_url && (
           <div className="flex items-center space-x-2 mb-1">
             <a
-              href={getFileUrl(act.pdf_url)}
+              href={act.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
@@ -171,7 +171,7 @@ export default function ActEditPage() {
         {act.photo_url && (
           <div className="flex items-center space-x-2 mb-1">
             <a
-              href={getFileUrl(act.photo_url)}
+              href={act.photo_url}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline"
