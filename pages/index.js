@@ -41,8 +41,8 @@ export default function Home() {
         <div style={{marginTop:20}}>
           <p>Go to:</p>
           <div className="nav">
-            <a href="/add">Add act</a>
-            <a href="/acts">View acts</a>
+            <a href="/acts/add">Додати акт</a>
+            <a href="/acts">Переглянути акти</a>
           </div>
         </div>
       )}
