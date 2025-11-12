@@ -1,42 +1,71 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
-import { useRouter } from 'next/router'
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
-export default function Add() {
-  const [user, setUser] = useState(null)
-  const [form, setForm] = useState({ date:'', amount:'', receiver:'', act_number:'', pdf:null, photo:null })
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+export default function AddAct() {
+  const [form, setForm] = useState({
+    date: '',
+    amount: '',
+    receiver: '',
+    act_number: '',
+    pdf: null,
+    photo: null,
+  });
 
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [user, setUser] = useState(null);
+
+  // Отримуємо авторизованого користувача
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => listener?.subscription?.unsubscribe?.()
-  }, [])
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
+  }, []);
 
-  if (!user) return <div className="container"><p>Please sign in on <a href="/">login</a></p></div>
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    setForm({ ...form, [name]: files[0] });
+  };
 
   const handleChange = (e) => {
-    const { name, value, files } = e.target
-    setForm(prev => ({ ...prev, [name]: files ? files[0] : value }))
-  }
-
-  const uploadFile = async (file, folder) => {
-    const fileName = `${folder}/${Date.now()}_${file.name.replaceAll(' ','_')}`
-    const { data, error } = await supabase.storage.from('acts-files').upload(fileName, file)
-    if (error) throw error
-    const { data: publicUrl } = supabase.storage.from('acts-files').getPublicUrl(fileName)
-    return publicUrl.publicUrl
-  }
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+  };
 
   const onSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
     try {
-      const pdfUrl = form.pdf ? await uploadFile(form.pdf, 'pdfs') : null
-      const photoUrl = form.photo ? await uploadFile(form.photo, 'photos') : null
+      if (!user) throw new Error('Ви не авторизовані');
+
+      let pdfUrl = null;
+      let photoUrl = null;
+
+      // Завантаження PDF
+      if (form.pdf) {
+        const pdfFileName = `${Date.now()}_${form.pdf.name}`;
+        const { data: pdfData, error: pdfError } = await supabase.storage
+          .from('acts-files')
+          .upload(pdfFileName, form.pdf);
+
+        if (pdfError) throw pdfError;
+
+        pdfUrl = supabase.storage.from('acts-files').getPublicUrl(pdfFileName).data.publicUrl;
+      }
+
+      // Завантаження фото
+      if (form.photo) {
+        const photoFileName = `${Date.now()}_${form.photo.name}`;
+        const { data: photoData, error: photoError } = await supabase.storage
+          .from('acts-files')
+          .upload(photoFileName, form.photo);
+
+        if (photoError) throw photoError;
+
+        photoUrl = supabase.storage.from('acts-files').getPublicUrl(photoFileName).data.publicUrl;
+      }
+
+      // Вставка рядка в таблицю acts
       const { error } = await supabase.from('acts').insert([{
         date: form.date,
         amount: form.amount,
@@ -45,35 +74,39 @@ export default function Add() {
         pdf_url: pdfUrl,
         photo_url: photoUrl,
         user_id: user.id
-      }])
-      if (error) throw error
-      alert('Act added')
-      router.push('/acts')
+      }]);
+
+      if (error) throw error;
+
+      setMessage('Акт додано успішно!');
+      setForm({ date: '', amount: '', receiver: '', act_number: '', pdf: null, photo: null });
     } catch (err) {
-      alert('Error: ' + err.message)
+      console.error(err);
+      setMessage('Помилка: ' + err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="container">
-      <h2>Add act</h2>
-      <form onSubmit={onSubmit} style={{display:'grid', gap:10, marginTop:10}}>
-        <input name="date" type="date" value={form.date} onChange={handleChange} required />
-        <input name="amount" type="number" value={form.amount} onChange={handleChange} placeholder="Amount" required />
-        <input name="receiver" type="text" value={form.receiver} onChange={handleChange} placeholder="Receiver" required />
-        <input name="act_number" type="text" value={form.act_number} onChange={handleChange} placeholder="Act number" required />
-        <div>
-          <label className="small">PDF file</label><br/>
-          <input name="pdf" type="file" accept="application/pdf" onChange={handleChange} />
-        </div>
-        <div>
-          <label className="small">Photo</label><br/>
-          <input name="photo" type="file" accept="image/*" onChange={handleChange} />
-        </div>
-        <button disabled={loading}>{loading ? 'Uploading...' : 'Save'}</button>
+    <div style={{ maxWidth: '600px', margin: '20px auto' }}>
+      <h2>Додати новий акт</h2>
+      <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <input type="date" name="date" value={form.date} onChange={handleChange} required />
+        <input type="number" name="amount" value={form.amount} onChange={handleChange} placeholder="Сума" required />
+        <input type="text" name="receiver" value={form.receiver} onChange={handleChange} placeholder="Отримувач" required />
+        <input type="text" name="act_number" value={form.act_number} onChange={handleChange} placeholder="Номер акту" required />
+        <label>
+          PDF Акту:
+          <input type="file" name="pdf" accept=".pdf" onChange={handleFileChange} />
+        </label>
+        <label>
+          Фото отримання:
+          <input type="file" name="photo" accept="image/*" onChange={handleFileChange} />
+        </label>
+        <button type="submit" disabled={loading}>{loading ? 'Завантаження...' : 'Додати акт'}</button>
       </form>
+      {message && <p>{message}</p>}
     </div>
-  )
+  );
 }
