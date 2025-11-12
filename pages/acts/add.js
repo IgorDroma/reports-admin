@@ -16,7 +16,14 @@ export default function Add() {
     return () => listener?.subscription?.unsubscribe?.()
   }, [])
 
-  if (!user) return <div className="container"><p>Please sign in on <a href="/">login</a></p></div>
+  if (!user)
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-lg">
+          Please sign in on <a href="/" className="text-blue-500 underline">login</a>
+        </p>
+      </div>
+    )
 
   const handleChange = (e) => {
     const { name, value, files } = e.target
@@ -57,22 +64,83 @@ export default function Add() {
   }
 
   return (
-    <div className="container">
-      <h2>Add act</h2>
-      <form onSubmit={onSubmit} style={{display:'grid', gap:10, marginTop:10}}>
-        <input name="date" type="date" value={form.date} onChange={handleChange} required />
-        <input name="amount" type="number" value={form.amount} onChange={handleChange} placeholder="Amount" required />
-        <input name="receiver" type="text" value={form.receiver} onChange={handleChange} placeholder="Receiver" required />
-        <input name="act_number" type="text" value={form.act_number} onChange={handleChange} placeholder="Act number" required />
+    <div className="max-w-lg mx-auto p-6 mt-10 bg-white shadow-lg rounded-lg">
+      <h2 className="text-2xl font-bold mb-6 text-center">Add New Act</h2>
+      <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <label className="small">PDF file</label><br/>
-          <input name="pdf" type="file" accept="application/pdf" onChange={handleChange} />
+          <label className="block font-medium mb-1">Date</label>
+          <input
+            name="date"
+            type="date"
+            value={form.date}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
+          />
         </div>
         <div>
-          <label className="small">Photo</label><br/>
-          <input name="photo" type="file" accept="image/*" onChange={handleChange} />
+          <label className="block font-medium mb-1">Amount</label>
+          <input
+            name="amount"
+            type="number"
+            value={form.amount}
+            onChange={handleChange}
+            placeholder="Amount"
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
+          />
         </div>
-        <button disabled={loading}>{loading ? 'Uploading...' : 'Save'}</button>
+        <div>
+          <label className="block font-medium mb-1">Receiver</label>
+          <input
+            name="receiver"
+            type="text"
+            value={form.receiver}
+            onChange={handleChange}
+            placeholder="Receiver"
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
+          />
+        </div>
+        <div>
+          <label className="block font-medium mb-1">Act Number</label>
+          <input
+            name="act_number"
+            type="text"
+            value={form.act_number}
+            onChange={handleChange}
+            placeholder="Act Number"
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
+          />
+        </div>
+        <div>
+          <label className="block font-medium mb-1">PDF File</label>
+          <input
+            name="pdf"
+            type="file"
+            accept="application/pdf"
+            onChange={handleChange}
+            className="w-full"
+          />
+        </div>
+        <div>
+          <label className="block font-medium mb-1">Photo</label>
+          <input
+            name="photo"
+            type="file"
+            accept="image/*"
+            onChange={handleChange}
+            className="w-full"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+        >
+          {loading ? 'Uploading...' : 'Save'}
+        </button>
       </form>
     </div>
   )
