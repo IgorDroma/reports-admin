@@ -18,9 +18,20 @@ export default function ActsPage() {
     else setActs(data);
   }
 
+  const getFileUrl = (path) =>
+    path ? supabase.storage.from("acts-files").getPublicUrl(path).data.publicUrl : null;
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Акти</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Акти</h1>
+        <Link
+          href="/acts/add"
+          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+        >
+          Додати акт
+        </Link>
+      </div>
 
       <table className="table-auto w-full border border-gray-300">
         <thead>
@@ -46,7 +57,7 @@ export default function ActsPage() {
               <td className="border px-2 py-1">
                 {act.pdf_url ? (
                   <a
-                    href={supabase.storage.from("acts-files").getPublicUrl(act.pdf_url).data.publicUrl}
+                    href={getFileUrl(act.pdf_url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
@@ -58,7 +69,7 @@ export default function ActsPage() {
               <td className="border px-2 py-1">
                 {act.photo_url ? (
                   <a
-                    href={supabase.storage.from("acts-files").getPublicUrl(act.photo_url).data.publicUrl}
+                    href={getFileUrl(act.photo_url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
