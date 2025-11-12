@@ -4,112 +4,128 @@ import Head from "next/head";
 
 export default function ActsPage() {
   const [acts, setActs] = useState([]);
-  const [files, setFiles] = useState([]); // всі файли окремо
   const [selectedAct, setSelectedAct] = useState(null);
-  const [newFiles, setNewFiles] = useState([]); // файли для завантаження
+  const [newPdf, setNewPdf] = useState(null);
+  const [newPhoto, setNewPhoto] = useState(null);
 
   useEffect(() => {
     fetchActs();
-    fetchFiles();
   }, []);
 
   async function fetchActs() {
-    const { data, error } = await supabase.from("acts").select("*");
+    const { data, error } = await supabase
+      .from("acts")
+      .select("*")
+      .order("id", { ascending: false });
     if (error) console.error(error);
     else setActs(data);
   }
 
-  async function fetchFiles() {
-    const { data, error } = await supabase.from("acts_files").select("*");
-    if (error) console.error(error);
-    else setFiles(data);
-  }
+  // --------------------
+  // Видалення PDF або фото
+  // --------------------
+  async function handleDeleteFile(act, type) {
+    const url = type === "pdf" ? act.pdf_url : act.photo_url;
+    if (!url) return;
 
-  // --------------------
-  // Видалення файлу
-  // --------------------
-  async function handleDeleteFile(file) {
+    const folder = type === "pdf" ? "pdfs" : "photos";
+
     const { error: storageError } = await supabase
       .storage
       .from("acts-files")
-      .remove([file.path]);
+      .remove([url.replace(`${folder}/`, "")]);
 
     if (storageError) {
-      console.error("Помилка при видаленні з бакету:", storageError.message);
+      console.error("Помилка видалення з бакету:", storageError.message);
+      return;
+    }
+
+    // Оновлюємо поле у таблиці та локально
+    const { error: dbError } = await supabase
+      .from("acts")
+      .update({ [type + "_url"]: null })
+      .eq("id", act.id);
+
+    if (dbError) console.error(dbError);
+    else {
+      setActs((prev) =>
+        prev.map((a) =>
+          a.id === act.id ? { ...a, [type + "_url"]: null } : a
+        )
+      );
+      setSelectedAct((prev) =>
+        prev ? { ...prev, [type + "_url"]: null } : null
+      );
+    }
+  }
+
+  // --------------------
+  // Завантаження PDF або фото
+  // --------------------
+  async function handleUploadFile(act, type, file) {
+    if (!file) return;
+    const folder = type === "pdf" ? "pdfs" : "photos";
+    const filePath = `${folder}/${act.id}-${file.name}`;
+
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from("acts-files")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error(uploadError);
       return;
     }
 
     const { error: dbError } = await supabase
-      .from("acts_files")
-      .delete()
-      .eq("id", file.id);
+      .from("acts")
+      .update({ [type + "_url"]: filePath })
+      .eq("id", act.id);
 
-    if (dbError) {
-      console.error("Помилка при видаленні з таблиці:", dbError.message);
-      return;
+    if (dbError) console.error(dbError);
+    else {
+      setActs((prev) =>
+        prev.map((a) =>
+          a.id === act.id ? { ...a, [type + "_url"]: filePath } : a
+        )
+      );
+      setSelectedAct((prev) =>
+        prev ? { ...prev, [type + "_url"]: filePath } : null
+      );
+      if (type === "pdf") setNewPdf(null);
+      else setNewPhoto(null);
     }
-
-    setFiles((prev) => prev.filter((f) => f.id !== file.id));
-  }
-
-  // --------------------
-  // Додавання нових файлів
-  // --------------------
-  async function handleUploadFiles() {
-    for (let file of newFiles) {
-      const { data: uploadData, error: uploadError } = await supabase
-        .storage
-        .from("acts-files")
-        .upload(file.name, file);
-
-      if (uploadError) {
-        console.error(uploadError);
-        continue;
-      }
-
-      const { error: dbError } = await supabase
-        .from("acts_files")
-        .insert({
-          act_id: selectedAct.id,
-          name: file.name,
-          path: uploadData.path
-        });
-
-      if (dbError) console.error(dbError);
-    }
-
-    setNewFiles([]);
-    fetchFiles();
   }
 
   // --------------------
   // Оновлення акту
   // --------------------
   async function handleUpdateAct(updatedAct) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("acts")
       .update({
         date: updatedAct.date,
-        recipient: updatedAct.recipient,
-        number: updatedAct.number,
-        sum: updatedAct.sum,
+        act_number: updatedAct.act_number,
+        receiver: updatedAct.receiver,
+        amount: updatedAct.amount,
       })
       .eq("id", updatedAct.id);
 
-    if (error) {
-      console.error("Помилка при оновленні акту:", error.message);
-      return;
+    if (error) console.error(error);
+    else {
+      setActs((prev) =>
+        prev.map((act) => (act.id === updatedAct.id ? updatedAct : act))
+      );
+      setSelectedAct(null);
     }
-
-    setActs((prev) =>
-      prev.map((act) => (act.id === updatedAct.id ? { ...act, ...updatedAct } : act))
-    );
-    setSelectedAct(null);
   }
 
   return (
     <div className="p-6">
-      
+      <Head>
+        <script src="https://cdn.tailwindcss.com"></script>
+      </Head>
+
       <h1 className="text-2xl font-bold mb-4">Акти</h1>
 
       {/* Таблиця актів */}
@@ -118,8 +134,11 @@ export default function ActsPage() {
           <tr>
             <th className="border px-2 py-1">№</th>
             <th className="border px-2 py-1">Дата</th>
+            <th className="border px-2 py-1">Номер акту</th>
             <th className="border px-2 py-1">Отримувач</th>
-            <th className="border px-2 py-1">Файли</th>
+            <th className="border px-2 py-1">Сума</th>
+            <th className="border px-2 py-1">PDF</th>
+            <th className="border px-2 py-1">Фото</th>
             <th className="border px-2 py-1">Дії</th>
           </tr>
         </thead>
@@ -128,22 +147,36 @@ export default function ActsPage() {
             <tr key={act.id}>
               <td className="border px-2 py-1">{idx + 1}</td>
               <td className="border px-2 py-1">{act.date}</td>
-              <td className="border px-2 py-1">{act.recipient}</td>
+              <td className="border px-2 py-1">{act.act_number}</td>
+              <td className="border px-2 py-1">{act.receiver}</td>
+              <td className="border px-2 py-1">{act.amount}</td>
               <td className="border px-2 py-1">
-                {files
-                  .filter((f) => f.act_id === act.id)
-                  .map((file) => (
-                    <div key={file.id} className="flex items-center space-x-2">
-                      <a
-                        href={`https://YOUR_SUPABASE_BUCKET_URL/${file.path}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 underline"
-                      >
-                        {file.name}
-                      </a>
-                    </div>
-                  ))}
+                {act.pdf_url ? (
+                  <a
+                    href={`https://YOUR_SUPABASE_BUCKET_URL/${act.pdf_url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline"
+                  >
+                    PDF
+                  </a>
+                ) : (
+                  "-"
+                )}
+              </td>
+              <td className="border px-2 py-1">
+                {act.photo_url ? (
+                  <a
+                    href={`https://YOUR_SUPABASE_BUCKET_URL/${act.photo_url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline"
+                  >
+                    Фото
+                  </a>
+                ) : (
+                  "-"
+                )}
               </td>
               <td className="border px-2 py-1">
                 <button
@@ -163,10 +196,10 @@ export default function ActsPage() {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative">
             <h2 className="text-xl font-bold mb-4">
-              Акт №{selectedAct.number}
+              Акт №{selectedAct.act_number}
             </h2>
 
-            {/* Поля редагування */}
+            {/* Редагування даних */}
             <div className="mb-2">
               <label className="block text-sm font-medium">Дата</label>
               <input
@@ -179,12 +212,23 @@ export default function ActsPage() {
               />
             </div>
             <div className="mb-2">
+              <label className="block text-sm font-medium">Номер акту</label>
+              <input
+                type="text"
+                value={selectedAct.act_number}
+                onChange={(e) =>
+                  setSelectedAct({ ...selectedAct, act_number: e.target.value })
+                }
+                className="border p-1 w-full"
+              />
+            </div>
+            <div className="mb-2">
               <label className="block text-sm font-medium">Отримувач</label>
               <input
                 type="text"
-                value={selectedAct.recipient}
+                value={selectedAct.receiver}
                 onChange={(e) =>
-                  setSelectedAct({ ...selectedAct, recipient: e.target.value })
+                  setSelectedAct({ ...selectedAct, receiver: e.target.value })
                 }
                 className="border p-1 w-full"
               />
@@ -193,53 +237,85 @@ export default function ActsPage() {
               <label className="block text-sm font-medium">Сума</label>
               <input
                 type="number"
-                value={selectedAct.sum}
+                value={selectedAct.amount}
                 onChange={(e) =>
-                  setSelectedAct({ ...selectedAct, sum: e.target.value })
+                  setSelectedAct({ ...selectedAct, amount: e.target.value })
                 }
                 className="border p-1 w-full"
               />
             </div>
 
-            {/* Список файлів акту */}
-            {files
-              .filter((f) => f.act_id === selectedAct.id)
-              .map((file) => (
-                <div key={file.id} className="flex items-center justify-between mb-2">
+            {/* PDF */}
+            <div className="mb-2">
+              <label className="block text-sm font-medium">PDF</label>
+              {selectedAct.pdf_url && (
+                <div className="flex items-center space-x-2 mb-1">
                   <a
-                    href={`https://YOUR_SUPABASE_BUCKET_URL/${file.path}`}
+                    href={`https://YOUR_SUPABASE_BUCKET_URL/${selectedAct.pdf_url}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
                   >
-                    {file.name}
+                    Поточний PDF
                   </a>
                   <button
-                    onClick={() => handleDeleteFile(file)}
+                    onClick={() => handleDeleteFile(selectedAct, "pdf")}
                     className="text-red-500 hover:text-red-700"
                   >
                     Видалити
                   </button>
                 </div>
-              ))}
-
-            {/* Завантаження нових файлів */}
-            <div className="mb-2">
-              <label className="block text-sm font-medium">Додати файли</label>
+              )}
               <input
                 type="file"
-                multiple
-                onChange={(e) => setNewFiles(Array.from(e.target.files))}
+                accept="application/pdf"
+                onChange={(e) => setNewPdf(e.target.files[0])}
                 className="border p-1 w-full"
               />
               <button
-                onClick={handleUploadFiles}
-                className="mt-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                onClick={() => handleUploadFile(selectedAct, "pdf", newPdf)}
+                className="mt-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
               >
-                Завантажити
+                Завантажити PDF
               </button>
             </div>
 
+            {/* Фото */}
+            <div className="mb-2">
+              <label className="block text-sm font-medium">Фото</label>
+              {selectedAct.photo_url && (
+                <div className="flex items-center space-x-2 mb-1">
+                  <a
+                    href={`https://YOUR_SUPABASE_BUCKET_URL/${selectedAct.photo_url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline"
+                  >
+                    Поточне фото
+                  </a>
+                  <button
+                    onClick={() => handleDeleteFile(selectedAct, "photo")}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Видалити
+                  </button>
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setNewPhoto(e.target.files[0])}
+                className="border p-1 w-full"
+              />
+              <button
+                onClick={() => handleUploadFile(selectedAct, "photo", newPhoto)}
+                className="mt-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+              >
+                Завантажити фото
+              </button>
+            </div>
+
+            {/* Кнопки закриття/збереження */}
             <div className="flex justify-end mt-4 space-x-2">
               <button
                 onClick={() => setSelectedAct(null)}
