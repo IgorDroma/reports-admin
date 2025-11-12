@@ -1,166 +1,134 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
+import Head from "next/head";
 
 export default function ActsPage() {
   const [acts, setActs] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedAct, setSelectedAct] = useState(null);
-  const [pdfFile, setPdfFile] = useState(null);
-  const [photoFile, setPhotoFile] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    loadActs();
+    fetchActs();
   }, []);
 
-  const loadActs = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.from("acts").select("*").order("date", { ascending: false });
+  async function fetchActs() {
+    const { data, error } = await supabase.from("acts").select(`
+      *,
+      acts_files(*)  // якщо є окрема таблиця для файлів
+    `);
     if (error) console.error(error);
     else setActs(data);
-    setLoading(false);
-  };
+  }
 
-  const handleEdit = (act) => {
-    setSelectedAct({ ...act });
-    setPdfFile(null);
-    setPhotoFile(null);
-  };
+  // --------------------
+  // Видалення файлу
+  // --------------------
+  async function handleDeleteFile(file) {
+    // 1️⃣ Видаляємо з бакету
+    const { error: storageError } = await supabase
+      .storage
+      .from("acts-files")
+      .remove([file.path]);
 
-  const handleSave = async () => {
-    if (!selectedAct) return;
-    setSaving(true);
-
-    let pdfUrl = selectedAct.pdf_url;
-    let photoUrl = selectedAct.photo_url;
-
-    // Завантаження нового PDF
-    if (pdfFile) {
-      const { data, error } = await supabase.storage
-        .from("acts-files")
-        .upload(`pdfs/${Date.now()}_${pdfFile.name}`, pdfFile, { upsert: true });
-      if (error) alert(error.message);
-      else pdfUrl = data.path;
+    if (storageError) {
+      console.error("Помилка при видаленні з бакету:", storageError.message);
+      return;
     }
 
-    // Завантаження нового фото
-    if (photoFile) {
-      const { data, error } = await supabase.storage
-        .from("acts-files")
-        .upload(`photos/${Date.now()}_${photoFile.name}`, photoFile, { upsert: true });
-      if (error) alert(error.message);
-      else photoUrl = data.path;
+    // 2️⃣ Видаляємо запис у таблиці
+    const { error: dbError } = await supabase
+      .from("acts_files")
+      .delete()
+      .eq("id", file.id);
+
+    if (dbError) {
+      console.error("Помилка при видаленні з таблиці:", dbError.message);
+      return;
     }
 
-    const { error } = await supabase
+    // 3️⃣ Оновлюємо стан на сторінці
+    setActs((prev) =>
+      prev.map((act) => {
+        if (act.id === file.act_id) {
+          return {
+            ...act,
+            acts_files: act.acts_files.filter((f) => f.id !== file.id),
+          };
+        }
+        return act;
+      })
+    );
+  }
+
+  // --------------------
+  // Оновлення інформації про акт
+  // --------------------
+  async function handleUpdateAct(updatedAct) {
+    const { data, error } = await supabase
       .from("acts")
       .update({
-        date: selectedAct.date,
-        amount: selectedAct.amount,
-        receiver: selectedAct.receiver,
-        act_number: selectedAct.act_number,
-        pdf_url: pdfUrl,
-        photo_url: photoUrl,
+        date: updatedAct.date,
+        recipient: updatedAct.recipient,
+        number: updatedAct.number,
+        sum: updatedAct.sum,
       })
-      .eq("id", selectedAct.id);
+      .eq("id", updatedAct.id);
 
-    if (error) alert(error.message);
-    else {
-      await loadActs();
-      setSelectedAct(null);
+    if (error) {
+      console.error("Помилка при оновленні акту:", error.message);
+      return;
     }
 
-    setSaving(false);
-  };
-
-  const handleDelete = async () => {
-    if (!selectedAct) return;
-    if (!confirm("Видалити цей акт?")) return;
-    setDeleting(true);
-
-    // Видалення файлів з бакету
-    if (selectedAct.pdf_url) {
-      await supabase.storage.from("acts-files").remove([selectedAct.pdf_url]);
-    }
-    if (selectedAct.photo_url) {
-      await supabase.storage.from("acts-files").remove([selectedAct.photo_url]);
-    }
-
-    const { error } = await supabase.from("acts").delete().eq("id", selectedAct.id);
-    if (error) alert(error.message);
-    else {
-      await loadActs();
-      setSelectedAct(null);
-    }
-
-    setDeleting(false);
-  };
-
-  const handleDeleteFile = async (type) => {
-    if (!selectedAct) return;
-    let filePath = type === "pdf" ? selectedAct.pdf_url : selectedAct.photo_url;
-    if (!filePath) return;
-
-    const { error } = await supabase.storage.from("acts-files").remove([filePath]);
-    if (error) alert(error.message);
-    else {
-      const updateData = type === "pdf" ? { pdf_url: null } : { photo_url: null };
-      const { error: dbError } = await supabase
-        .from("acts")
-        .update(updateData)
-        .eq("id", selectedAct.id);
-      if (dbError) alert(dbError.message);
-      else setSelectedAct({ ...selectedAct, ...updateData });
-    }
-  };
-
-  const publicUrl = (path) => {
-    if (!path) return null;
-    const { data } = supabase.storage.from("acts-files").getPublicUrl(path);
-    return data.publicUrl;
-  };
-
-  if (loading) return <p className="p-4">Завантаження...</p>;
+    // Оновлюємо стан на сторінці
+    setActs((prev) =>
+      prev.map((act) => (act.id === updatedAct.id ? { ...act, ...updatedAct } : act))
+    );
+    setSelectedAct(null);
+  }
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Акти видачі</h1>
-      <table className="min-w-full border border-gray-300">
+      <Head>
+        {/* Підключення Tailwind через Play CDN */}
+        <script src="https://cdn.tailwindcss.com"></script>
+      </Head>
+
+      <h1 className="text-2xl font-bold mb-4">Акти</h1>
+
+      {/* Таблиця актів */}
+      <table className="table-auto w-full border border-gray-300">
         <thead>
-          <tr className="bg-gray-100">
-            <th className="border p-2">Дата</th>
-            <th className="border p-2">Сума</th>
-            <th className="border p-2">Отримувач</th>
-            <th className="border p-2">№ Акту</th>
-            <th className="border p-2">PDF</th>
-            <th className="border p-2">Фото</th>
-            <th className="border p-2">Дії</th>
+          <tr>
+            <th className="border px-2 py-1">№</th>
+            <th className="border px-2 py-1">Дата</th>
+            <th className="border px-2 py-1">Отримувач</th>
+            <th className="border px-2 py-1">Файли</th>
+            <th className="border px-2 py-1">Дії</th>
           </tr>
         </thead>
         <tbody>
-          {acts.map((act) => (
-            <tr key={act.id} className="hover:bg-gray-50">
-              <td className="border p-2">{act.date}</td>
-              <td className="border p-2">{act.amount}</td>
-              <td className="border p-2">{act.receiver}</td>
-              <td className="border p-2">{act.act_number}</td>
-              <td className="border p-2 text-center">
-                {act.pdf_url ? (
-                  <a href={publicUrl(act.pdf_url)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                    PDF
-                  </a>
-                ) : "-"}
+          {acts.map((act, idx) => (
+            <tr key={act.id}>
+              <td className="border px-2 py-1">{idx + 1}</td>
+              <td className="border px-2 py-1">{act.date}</td>
+              <td className="border px-2 py-1">{act.recipient}</td>
+              <td className="border px-2 py-1">
+                {act.acts_files?.map((file) => (
+                  <div key={file.id} className="flex items-center space-x-2">
+                    <a
+                      href={`https://YOUR_SUPABASE_BUCKET_URL/${file.path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 underline"
+                    >
+                      {file.name}
+                    </a>
+                  </div>
+                ))}
               </td>
-              <td className="border p-2 text-center">
-                {act.photo_url ? (
-                  <img src={publicUrl(act.photo_url)} alt="Фото" className="h-12 mx-auto rounded" />
-                ) : "-"}
-              </td>
-              <td className="border p-2 text-center">
+              <td className="border px-2 py-1">
                 <button
-                  onClick={() => handleEdit(act)}
-                  className="text-blue-600 hover:underline font-medium"
+                  onClick={() => setSelectedAct(act)}
+                  className="bg-blue-500 text-white px-3 py-1 rounded"
                 >
                   Редагувати
                 </button>
@@ -170,109 +138,82 @@ export default function ActsPage() {
         </tbody>
       </table>
 
-      {/* МОДАЛЬНЕ ВІКНО */}
+      {/* Модальне вікно */}
       {selectedAct && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative">
-            <h2 className="text-xl font-semibold mb-4">Редагування акту #{selectedAct.act_number}</h2>
+            <h2 className="text-xl font-bold mb-4">
+              Акт №{selectedAct.number}
+            </h2>
 
-            <div className="space-y-3">
+            {/* Поля редагування */}
+            <div className="mb-2">
+              <label className="block text-sm font-medium">Дата</label>
               <input
                 type="date"
-                value={selectedAct.date || ""}
-                onChange={(e) => setSelectedAct({ ...selectedAct, date: e.target.value })}
-                className="border p-2 w-full rounded"
+                value={selectedAct.date}
+                onChange={(e) =>
+                  setSelectedAct({ ...selectedAct, date: e.target.value })
+                }
+                className="border p-1 w-full"
               />
+            </div>
+            <div className="mb-2">
+              <label className="block text-sm font-medium">Отримувач</label>
+              <input
+                type="text"
+                value={selectedAct.recipient}
+                onChange={(e) =>
+                  setSelectedAct({ ...selectedAct, recipient: e.target.value })
+                }
+                className="border p-1 w-full"
+              />
+            </div>
+            <div className="mb-2">
+              <label className="block text-sm font-medium">Сума</label>
               <input
                 type="number"
-                placeholder="Сума"
-                value={selectedAct.amount || ""}
-                onChange={(e) => setSelectedAct({ ...selectedAct, amount: e.target.value })}
-                className="border p-2 w-full rounded"
+                value={selectedAct.sum}
+                onChange={(e) =>
+                  setSelectedAct({ ...selectedAct, sum: e.target.value })
+                }
+                className="border p-1 w-full"
               />
-              <input
-                type="text"
-                placeholder="Отримувач"
-                value={selectedAct.receiver || ""}
-                onChange={(e) => setSelectedAct({ ...selectedAct, receiver: e.target.value })}
-                className="border p-2 w-full rounded"
-              />
-              <input
-                type="text"
-                placeholder="№ Акту"
-                value={selectedAct.act_number || ""}
-                onChange={(e) => setSelectedAct({ ...selectedAct, act_number: e.target.value })}
-                className="border p-2 w-full rounded"
-              />
-
-              <div>
-                <label className="block font-medium">PDF файл:</label>
-                {selectedAct.pdf_url && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <a
-                      href={publicUrl(selectedAct.pdf_url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-600 underline"
-                    >
-                      Переглянути
-                    </a>
-                    <button
-                      onClick={() => handleDeleteFile("pdf")}
-                      className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                    >
-                      🗑 Видалити PDF
-                    </button>
-                  </div>
-                )}
-                <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files[0])} />
-              </div>
-
-              <div>
-                <label className="block font-medium">Фото:</label>
-                {selectedAct.photo_url && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <img
-                      src={publicUrl(selectedAct.photo_url)}
-                      alt="Фото"
-                      className="h-20 rounded"
-                    />
-                    <button
-                      onClick={() => handleDeleteFile("photo")}
-                      className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                    >
-                      🗑 Видалити Фото
-                    </button>
-                  </div>
-                )}
-                <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files[0])} />
-              </div>
             </div>
 
-            <div className="mt-5 flex justify-between items-center">
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-              >
-                {deleting ? "Видалення..." : "Видалити акт"}
-              </button>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSelectedAct(null)}
-                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+            {/* Файли акту */}
+            {selectedAct.acts_files?.map((file) => (
+              <div key={file.id} className="flex items-center justify-between mb-2">
+                <a
+                  href={`https://YOUR_SUPABASE_BUCKET_URL/${file.path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 underline"
                 >
-                  Закрити
-                </button>
+                  {file.name}
+                </a>
                 <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  onClick={() => handleDeleteFile(file)}
+                  className="text-red-500 hover:text-red-700"
                 >
-                  {saving ? "Збереження..." : "Зберегти"}
+                  Видалити
                 </button>
               </div>
+            ))}
+
+            <div className="flex justify-end mt-4 space-x-2">
+              <button
+                onClick={() => setSelectedAct(null)}
+                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded"
+              >
+                Закрити
+              </button>
+              <button
+                onClick={() => handleUpdateAct(selectedAct)}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+              >
+                Зберегти
+              </button>
             </div>
           </div>
         </div>
