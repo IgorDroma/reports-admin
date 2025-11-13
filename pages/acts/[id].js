@@ -45,16 +45,18 @@ export default function ActEditPage() {
   }
 
   async function handleDelete(type) {
-    const url = act[`${type}_url`];
-    if (!url) return;
-    try {
-      await FileHelper.deleteFile(url);
-      await supabase.from("acts").update({ [`${type}_url`]: null }).eq("id", act.id);
-      setAct({ ...act, [`${type}_url`]: null });
-    } catch (err) {
-      alert(err.message);
-    }
+  const url = act[`${type}_url`];
+  if (!url) return;
+
+  try {
+    await FileHelper.deleteFile(url, act.id, type);
+    setAct({ ...act, [`${type}_url`]: null });
+    alert(`${type.toUpperCase()} успішно видалено`);
+  } catch (err) {
+    alert("Помилка при видаленні: " + err.message);
   }
+}
+
 
   if (!act) return <div>Loading...</div>;
 
