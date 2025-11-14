@@ -32,7 +32,7 @@ export default function ActEditPage() {
         receiver: act.receiver,
         amount: act.amount,
       })
-      .eq("id", act.id);
+      .eq("id", actId);
     if (error) console.error(error);
     else router.push("/acts");
   }
