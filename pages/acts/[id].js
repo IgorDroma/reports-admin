@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 export default function ActEditPage() {
   const router = useRouter();
   const { id } = router.query;
+  const actId = Number(id);
   const [act, setAct] = useState(null);
 
   useEffect(() => {
@@ -13,7 +14,11 @@ export default function ActEditPage() {
   }, [id]);
 
   async function fetchAct() {
-    const { data, error } = await supabase.from("acts").select("*").eq("id", id).single();
+    const { data, error } = await supabase
+    .from("acts")
+    .select("*")
+    .eq("id", actId)
+    .single();
     if (error) console.error(error);
     else setAct(data);
   }
@@ -49,7 +54,7 @@ export default function ActEditPage() {
   if (!url) return;
 
   try {
-    await FileHelper.deleteFile(url, act.id, type);
+    await FileHelper.deleteFile(url, actId, type);
     setAct({ ...act, [`${type}_url`]: null });
     alert(`${type.toUpperCase()} успішно видалено`);
   } catch (err) {
