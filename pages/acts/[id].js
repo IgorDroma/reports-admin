@@ -1,112 +1,116 @@
-import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabaseClient";
+import { FileHelper } from "../../lib/fileHelper";
+import { useRouter } from "next/router";
 
-export default function EditAct() {
-  const router = useRouter()
-  const { id } = router.query
+export default function ActEditPage() {
+  const router = useRouter();
+  const { id } = router.query;
+  const actId = Number(id);
+  const [act, setAct] = useState(null);
 
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState(null)
-  const [file, setFile] = useState(null)
-
-  // Завантажити існуючий запис
   useEffect(() => {
-    if (!id) return
-    loadRecord()
-  }, [id])
+    if (id) fetchAct();
+  }, [id]);
 
-  async function loadRecord() {
-    setLoading(true)
+  async function fetchAct() {
     const { data, error } = await supabase
-      .from('acts')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (error) console.error(error)
-    else setData(data)
-    setLoading(false)
+    .from("acts")
+    .select("*")
+    .eq("id", actId)
+    .single();
+    if (error) console.error(error);
+    else setAct(data);
   }
 
-  async function updateRecord(e) {
-    e.preventDefault()
-    setLoading(true)
+  async function handleUpdateAct() {
+    const { error } = await supabase
+      .from("acts")
+      .update({
+        date: act.date,
+        act_number: act.act_number,
+        receiver: act.receiver,
+        amount: act.amount,
+      })
+      .eq("id", actId);
+    if (error) console.error(error);
+    else router.push("/acts");
+  }
 
-    let updated = { ...data }
-
-    // Якщо вибрано новий файл — завантажити його
-    if (file) {
-      const fileName = `${Date.now()}-${file.name}`
-      const { error: uploadError } = await supabase.storage
-        .from('acts-files')
-        .upload(fileName, file)
-
-      if (uploadError) {
-        alert('Помилка завантаження файлу')
-        setLoading(false)
-        return
-      }
-
-      updated.file_url = fileName
+  async function handleUpload(type, file) {
+    if (!file) return;
+    try {
+      const folder = type === "pdf" ? "pdfs" : "photos";
+      const { url } = await FileHelper.uploadFile(file, folder, act.act_number);
+      await supabase.from("acts").update({ [`${type}_url`]: url }).eq("id", act.id);
+      setAct({ ...act, [`${type}_url`]: url });
+    } catch (err) {
+      alert(err.message);
     }
-
-    const { error } = await supabase
-      .from('acts')
-      .update(updated)
-      .eq('id', id)
-
-    if (error) alert('Помилка оновлення')
-    else router.push('/acts')
-
-    setLoading(false)
   }
 
-  async function deleteRecord() {
-    if (!confirm('Точно видалити запис?')) return
+  async function handleDelete(type) {
+  const url = act[`${type}_url`];
+  if (!url) return;
 
-    const { error } = await supabase
-      .from('acts')
-      .delete()
-      .eq('id', id)
-
-    if (error) alert('Помилка видалення')
-    else router.push('/acts')
+  try {
+    await FileHelper.deleteFile(url, actId, type);
+    setAct({ ...act, [`${type}_url`]: null });
+    alert(`${type.toUpperCase()} успішно видалено`);
+  } catch (err) {
+    alert("Помилка при видаленні: " + err.message);
   }
+}
 
-  if (loading || !data) return <div>Loading...</div>
+
+  if (!act) return <div>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 600, margin: '40px auto' }}>
-      <h1>Редагувати запис #{id}</h1>
+    <div className="p-6 max-w-lg mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Редагування акту №{act.act_number}</h1>
 
-      <form onSubmit={updateRecord}>
-        <label>Назва</label>
-        <input
-          value={data.title}
-          onChange={(e) => setData({ ...data, title: e.target.value })}
-        />
+      {["date", "act_number", "receiver", "amount"].map((field) => (
+        <div key={field} className="mb-2">
+          <label className="block font-medium capitalize">{field}</label>
+          <input
+            type={field === "date" ? "date" : field === "amount" ? "number" : "text"}
+            value={act[field] || ""}
+            onChange={(e) => setAct({ ...act, [field]: e.target.value })}
+            className="border p-1 w-full rounded"
+          />
+        </div>
+      ))}
 
-        <label>Опис</label>
-        <textarea
-          value={data.description}
-          onChange={(e) => setData({ ...data, description: e.target.value })}
-        />
+      {["pdf", "photo"].map((type) => (
+        <div key={type} className="mb-2">
+          <label className="block font-medium">{type.toUpperCase()}</label>
+          {act[`${type}_url`] && (
+            <div className="flex items-center space-x-2 mb-1">
+              <a href={act[`${type}_url`]} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                Поточний {type}
+              </a>
+              <button onClick={() => handleDelete(type)} className="text-red-500 hover:text-red-700">
+                Видалити
+              </button>
+            </div>
+          )}
+          <input
+            type="file"
+            accept={type === "pdf" ? "application/pdf" : "image/*"}
+            onChange={(e) => handleUpload(type, e.target.files[0])}
+            className="border p-1 w-full rounded"
+          />
+        </div>
+      ))}
 
-        <label>Новий файл (опційно)</label>
-        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-
-        <button type="submit">Оновити</button>
-      </form>
-
-      <hr />
-
-      <button
-        onClick={deleteRecord}
-        style={{ background: 'red', color: 'white', marginTop: 20 }}
-      >
-        Видалити запис
-      </button>
+      <div className="flex space-x-2 mt-4">
+        <button onClick={() => router.push("/acts")} className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
+          Назад
+        </button>
+        <button onClick={() => handleUpdateAct()} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+          Зберегти
+        </button>
+      </div>
     </div>
-  )
+  );
 }
