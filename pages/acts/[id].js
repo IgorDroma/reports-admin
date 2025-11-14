@@ -38,6 +38,7 @@ export default function ActEditPage() {
   console.error("UPDATE ERROR:", error);
 } else {
   console.log("UPDATED OK");
+      console.log("UPDATING ID =", actId, typeof actId);
   router.push("/acts");
 }
   }
