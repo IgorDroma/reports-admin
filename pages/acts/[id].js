@@ -24,10 +24,7 @@ export default function ActEditPage() {
   }
 
   async function handleUpdateAct() {
-  console.log("UPDATING ID =", actId, "type:", typeof actId);
-  console.log("DATA SENDING:", act);
-
-  const { data, error, status, count } = await supabase
+  const { error } = await supabase
     .from("acts")
     .update({
       date: act.date,
@@ -35,20 +32,12 @@ export default function ActEditPage() {
       receiver: act.receiver,
       amount: act.amount,
     })
-    .eq("id", Number(actId))
-    .select("*");
+    .eq("id", String(actId));   // <-- ВАЖЛИВО
 
-  console.log("STATUS:", status);
-  console.log("DATA RETURNED:", data);
-  console.log("ERROR:", error);
-
-  if (error) {
-    console.error(error);
-  } else {
-    console.log("UPDATED OK");
-    router.push("/acts");
-  }
+  if (error) console.error(error);
+  else router.push("/acts");
 }
+
 
 
   async function handleUpload(type, file) {
