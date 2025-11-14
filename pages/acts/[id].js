@@ -107,7 +107,7 @@ export default function ActEditPage() {
         <button onClick={() => router.push("/acts")} className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
           Назад
         </button>
-        <button onClick={handleUpdateAct} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+        <button onClick={() => handleUpdateAct()} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
           Зберегти
         </button>
       </div>
