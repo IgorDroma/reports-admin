@@ -32,9 +32,14 @@ export default function ActEditPage() {
         receiver: act.receiver,
         amount: act.amount,
       })
-      .eq("id", actId);
-    if (error) console.error(error);
-    else router.push("/acts");
+      .eq("id", actId)
+      .select("*");
+    if (error) {
+  console.error("UPDATE ERROR:", error);
+} else {
+  console.log("UPDATED OK");
+  router.push("/acts");
+}
   }
 
   async function handleUpload(type, file) {
