@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { supabase } from "../../utils/supabaseClient"; // заміни шлях якщо інший
+import { supabase } from "../../lib/supabaseClient"; // заміни шлях якщо інший
 
 export default function EditActPage() {
   const router = useRouter();
