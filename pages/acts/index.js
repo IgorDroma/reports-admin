@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { supabase } from "../../utils/supabaseClient"; // заміни шлях
+import { supabase } from "../../lib/supabaseClient"; // заміни шлях
 
 export default function ActsPage() {
   const [acts, setActs] = useState([]);
