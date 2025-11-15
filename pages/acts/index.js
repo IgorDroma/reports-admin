@@ -74,3 +74,52 @@ export default function ActsPage() {
                       className="text-blue-600 underline"
                     >
                       PDF
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+
+                {/* Photo */}
+                <td className="border px-3 py-2">
+                  {act.photo_url ? (
+                    <a
+                      href={act.photo_url}
+                      target="_blank"
+                      className="text-blue-600 underline"
+                    >
+                      Фото
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+
+                {/* Edit button */}
+                <td className="border px-3 py-2 text-center">
+                  <Link
+                    href={`/acts/${act.id}`}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded shadow"
+                  >
+                    Редагувати
+                  </Link>
+                </td>
+              </tr>
+            ))}
+
+            {acts.length === 0 && (
+              <tr>
+                <td
+                  colSpan="8"
+                  className="text-center py-6 text-gray-500 border"
+                >
+                  Немає записів
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
