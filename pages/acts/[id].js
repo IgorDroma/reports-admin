@@ -101,7 +101,7 @@ export default function EditActPage() {
     const filePath = `${type}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("acts")
+      .from("acts-files")
       .upload(filePath, file, {
         upsert: true,
       });
@@ -114,7 +114,7 @@ export default function EditActPage() {
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from("acts").getPublicUrl(filePath);
+    } = supabase.storage.from("acts-files").getPublicUrl(filePath);
 
     setAct((prev) => ({ ...prev, [`${type}_url`]: publicUrl }));
   }
