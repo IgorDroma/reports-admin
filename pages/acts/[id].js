@@ -90,6 +90,44 @@ export default function EditActPage() {
   }
 
   // -----------------------------------
+  // DELETE file
+  // -----------------------------------
+  async function deleteFile(type) {
+  const url = type === "pdf" ? act.pdf_url : act.photo_url;
+  if (!url) return alert("Файлу не існує");
+
+  // Витягуємо шлях у bucket
+  const path = url.split("/storage/v1/object/public/acts-files/")[1];
+  if (!path) return alert("Помилка: не знайдено шлях файла");
+
+  // 1. Видаляємо файл
+  const { error: storageError } = await supabase.storage
+    .from("acts-files")
+    .remove([path]);
+
+  if (storageError) {
+    console.error(storageError);
+    return alert("Помилка видалення файла");
+  }
+
+  // 2. Очищаємо поле в базі
+  const field = type === "pdf" ? "pdf_url" : "photo_url";
+
+  const { error: dbError } = await supabase
+    .from("acts")
+    .update({ [field]: null })
+    .eq("id", actId);
+
+  if (dbError) {
+    console.error(dbError);
+    return alert("Помилка оновлення запису");
+  }
+
+  alert("Файл успішно видалено!");
+  fetchAct(); // оновлюємо дані
+}
+
+  // -----------------------------------
   // FILE UPLOAD HANDLER
   // -----------------------------------
   async function handleFileUpload(e, type) {
@@ -181,6 +219,12 @@ export default function EditActPage() {
           >
             Переглянути PDF
           </a>
+<button
+      onClick={() => deleteFile("pdf")}
+      className="text-red-500 hover:text-red-700 text-sm"
+    >
+      Видалити PDF
+    </button>
         )}
 
         <input
@@ -201,6 +245,12 @@ export default function EditActPage() {
             className="max-h-40 rounded mb-2 border"
             alt="preview"
           />
+              <button
+      onClick={() => deleteFile("photo")}
+      className="text-red-500 hover:text-red-700 text-sm"
+    >
+      Видалити фото
+    </button>
         )}
 
         <input
