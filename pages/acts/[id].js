@@ -219,7 +219,7 @@ export default function EditActPage() {
           >
             Переглянути PDF
           </a>
-<button onClick={() => deleteFile("pdf")} className="text-red-500 hover:text-red-700 text-sm">
+<button onClick={deleteFile("pdf")} className="text-red-500 hover:text-red-700 text-sm">
       Видалити PDF
     </button>
         )}
@@ -242,7 +242,7 @@ export default function EditActPage() {
             className="max-h-40 rounded mb-2 border"
             alt="preview"
           />
-              <button onClick={() => deleteFile("photo")} className="text-red-500 hover:text-red-700 text-sm">
+              <button onClick={deleteFile("photo")} className="text-red-500 hover:text-red-700 text-sm">
       Видалити фото
     </button>
         )}
