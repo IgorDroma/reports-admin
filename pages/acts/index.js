@@ -16,7 +16,7 @@ export default function ActsPage() {
     const { data, error } = await supabase
       .from("acts")
       .select("*")
-      .order("date", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) console.error(error);
     else setActs(data);
