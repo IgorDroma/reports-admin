@@ -1,117 +1,232 @@
-import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import { FileHelper } from "../../lib/fileHelper";
 import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
+import { supabase } from "../../utils/supabaseClient"; // заміни шлях якщо інший
 
-export default function ActEditPage() {
+export default function EditActPage() {
   const router = useRouter();
   const { id } = router.query;
-  const actId = Number(id);
-  const [act, setAct] = useState(null);
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const [act, setAct] = useState({
+    date: "",
+    amount: "",
+    act_number: "",
+    receiver: "",
+    pdf_url: "",
+    photo_url: "",
+  });
+
+  // -------------------------------
+  // LOAD DATA
+  // -------------------------------
   useEffect(() => {
-    if (id) fetchAct();
+    if (!id) return;
+    loadAct();
   }, [id]);
 
-  async function fetchAct() {
+  async function loadAct() {
+    setLoading(true);
     const { data, error } = await supabase
-    .from("acts")
-    .select("*")
-    .eq("id", actId)
-    .single();
+      .from("acts")
+      .select("*")
+      .eq("id", id)
+      .single();
+
     if (error) console.error(error);
     else setAct(data);
+
+    setLoading(false);
   }
 
-  async function handleUpdateAct() {
-  const { error } = await supabase
-    .from("acts")
-    .update({
-      date: act.date,
-      act_number: act.act_number,
-      receiver: act.receiver,
-      amount: act.amount,
-    })
-    .eq("id", String(actId));   // <-- ВАЖЛИВО
+  // -----------------------------------
+  // UPDATE ACT
+  // -----------------------------------
+  async function handleUpdate() {
+    setSaving(true);
 
-  if (error) console.error(error);
-  else router.push("/acts");
-}
+    const { error } = await supabase
+      .from("acts")
+      .update({
+        date: act.date,
+        amount: act.amount,
+        act_number: act.act_number,
+        receiver: act.receiver,
+        pdf_url: act.pdf_url,
+        photo_url: act.photo_url,
+      })
+      .eq("id", id);
 
+    setSaving(false);
 
-
-  async function handleUpload(type, file) {
-    if (!file) return;
-    try {
-      const folder = type === "pdf" ? "pdfs" : "photos";
-      const { url } = await FileHelper.uploadFile(file, folder, act.act_number);
-      await supabase.from("acts").update({ [`${type}_url`]: url }).eq("id", act.id);
-      setAct({ ...act, [`${type}_url`]: url });
-    } catch (err) {
-      alert(err.message);
+    if (error) {
+      console.error(error);
+      alert("Помилка при оновленні");
+    } else {
+      router.push("/acts");
     }
   }
 
-  async function handleDelete(type) {
-  const url = act[`${type}_url`];
-  if (!url) return;
+  // -----------------------------------
+  // DELETE ACT
+  // -----------------------------------
+  async function handleDelete() {
+    if (!confirm("Точно видалити документ?")) return;
 
-  try {
-    await FileHelper.deleteFile(url, actId, type);
-    setAct({ ...act, [`${type}_url`]: null });
-    alert(`${type.toUpperCase()} успішно видалено`);
-  } catch (err) {
-    alert("Помилка при видаленні: " + err.message);
+    setDeleting(true);
+
+    const { error } = await supabase.from("acts").delete().eq("id", id);
+
+    setDeleting(false);
+
+    if (error) {
+      console.error(error);
+      alert("Помилка при видаленні");
+    } else {
+      router.push("/acts");
+    }
   }
-}
 
+  // -----------------------------------
+  // FILE UPLOAD HANDLER
+  // -----------------------------------
+  async function handleFileUpload(e, type) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  if (!act) return <div>Loading...</div>;
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${id}-${type}.${fileExt}`;
+    const filePath = `${type}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("acts")
+      .upload(filePath, file, {
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error(uploadError);
+      alert("Помилка завантаження файлу");
+      return;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("acts").getPublicUrl(filePath);
+
+    setAct((prev) => ({ ...prev, [`${type}_url`]: publicUrl }));
+  }
+
+  if (loading) return <p className="p-4">Завантаження...</p>;
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Редагування акту №{act.act_number}</h1>
+    <div className="max-w-2xl mx-auto p-5">
+      <h1 className="text-2xl font-bold mb-5">Редагувати акт</h1>
 
-      {["date", "act_number", "receiver", "amount"].map((field) => (
-        <div key={field} className="mb-2">
-          <label className="block font-medium capitalize">{field}</label>
-          <input
-            type={field === "date" ? "date" : field === "amount" ? "number" : "text"}
-            value={act[field] || ""}
-            onChange={(e) => setAct({ ...act, [field]: e.target.value })}
-            className="border p-1 w-full rounded"
+      {/* Date */}
+      <div className="mb-4">
+        <label className="block mb-1 font-medium">Дата</label>
+        <input
+          type="date"
+          className="border p-2 rounded w-full"
+          value={act.date || ""}
+          onChange={(e) => setAct({ ...act, date: e.target.value })}
+        />
+      </div>
+
+      {/* Act number */}
+      <div className="mb-4">
+        <label className="block mb-1 font-medium">Номер акту</label>
+        <input
+          type="text"
+          className="border p-2 rounded w-full"
+          value={act.act_number || ""}
+          onChange={(e) => setAct({ ...act, act_number: e.target.value })}
+        />
+      </div>
+
+      {/* Receiver */}
+      <div className="mb-4">
+        <label className="block mb-1 font-medium">Отримувач</label>
+        <input
+          type="text"
+          className="border p-2 rounded w-full"
+          value={act.receiver || ""}
+          onChange={(e) => setAct({ ...act, receiver: e.target.value })}
+        />
+      </div>
+
+      {/* Amount */}
+      <div className="mb-4">
+        <label className="block mb-1 font-medium">Сума</label>
+        <input
+          type="number"
+          className="border p-2 rounded w-full"
+          value={act.amount || ""}
+          onChange={(e) => setAct({ ...act, amount: e.target.value })}
+        />
+      </div>
+
+      {/* File: PDF */}
+      <div className="mb-4">
+        <label className="block mb-1 font-medium">PDF</label>
+
+        {act.pdf_url && (
+          <a
+            href={act.pdf_url}
+            target="_blank"
+            className="text-blue-600 underline block mb-2"
+          >
+            Переглянути PDF
+          </a>
+        )}
+
+        <input
+          type="file"
+          accept="application/pdf"
+          onChange={(e) => handleFileUpload(e, "pdf")}
+          className="block"
+        />
+      </div>
+
+      {/* File: Photo */}
+      <div className="mb-4">
+        <label className="block mb-1 font-medium">Фото</label>
+
+        {act.photo_url && (
+          <img
+            src={act.photo_url}
+            className="max-h-40 rounded mb-2 border"
+            alt="preview"
           />
-        </div>
-      ))}
+        )}
 
-      {["pdf", "photo"].map((type) => (
-        <div key={type} className="mb-2">
-          <label className="block font-medium">{type.toUpperCase()}</label>
-          {act[`${type}_url`] && (
-            <div className="flex items-center space-x-2 mb-1">
-              <a href={act[`${type}_url`]} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                Поточний {type}
-              </a>
-              <button onClick={() => handleDelete(type)} className="text-red-500 hover:text-red-700">
-                Видалити
-              </button>
-            </div>
-          )}
-          <input
-            type="file"
-            accept={type === "pdf" ? "application/pdf" : "image/*"}
-            onChange={(e) => handleUpload(type, e.target.files[0])}
-            className="border p-1 w-full rounded"
-          />
-        </div>
-      ))}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleFileUpload(e, "photo")}
+          className="block"
+        />
+      </div>
 
-      <div className="flex space-x-2 mt-4">
-        <button onClick={() => router.push("/acts")} className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
-          Назад
+      {/* Buttons */}
+      <div className="flex gap-4 mt-6">
+        <button
+          onClick={handleUpdate}
+          disabled={saving}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          {saving ? "Збереження..." : "Зберегти"}
         </button>
-        <button onClick={() => handleUpdateAct()} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-          Зберегти
+
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          {deleting ? "Видалення..." : "Видалити"}
         </button>
       </div>
     </div>
