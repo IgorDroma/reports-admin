@@ -116,7 +116,7 @@ export default function EditActPage() {
   const { error: dbError } = await supabase
     .from("acts")
     .update({ [field]: null })
-    .eq("id", actId);
+    .eq("id", id);
 
   if (dbError) {
     console.error(dbError);
@@ -212,17 +212,23 @@ export default function EditActPage() {
         <label className="block mb-1 font-medium">PDF</label>
 
         {act.pdf_url && (
-          <a
-            href={act.pdf_url}
-            target="_blank"
-            className="text-blue-600 underline block mb-2"
-          >
-            Переглянути PDF
-          </a>
-<button onClick={deleteFile("pdf")} className="text-red-500 hover:text-red-700 text-sm">
+  <>
+    <a
+      href={act.pdf_url}
+      target="_blank"
+      className="text-blue-600 underline block mb-2"
+    >
+      Переглянути PDF
+    </a>
+    <button
+      onClick={() => deleteFile("pdf")}
+      className="text-red-500 hover:text-red-700 text-sm"
+    >
       Видалити PDF
     </button>
-        )}
+  </>
+)}
+
 
         <input
           type="file"
@@ -237,15 +243,21 @@ export default function EditActPage() {
         <label className="block mb-1 font-medium">Фото</label>
 
         {act.photo_url && (
-          <img
-            src={act.photo_url}
-            className="max-h-40 rounded mb-2 border"
-            alt="preview"
-          />
-              <button onClick={deleteFile("photo")} className="text-red-500 hover:text-red-700 text-sm">
+  <>
+    <img
+      src={act.photo_url}
+      className="max-h-40 rounded mb-2 border"
+      alt="preview"
+    />
+    <button
+      onClick={() => deleteFile("photo")}
+      className="text-red-500 hover:text-red-700 text-sm"
+    >
       Видалити фото
     </button>
-        )}
+  </>
+)}
+
 
         <input
           type="file"
