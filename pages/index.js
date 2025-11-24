@@ -60,13 +60,7 @@ export default function Home() {
           <p className="text-gray-700 mb-3 font-medium">Go to:</p>
           <div className="flex flex-col space-y-3">
             <a
-              href="/acts/add"
-              className="px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg font-medium text-blue-700 shadow-sm"
-            >
-              Додати акт
-            </a>
-            <a
-              href="/acts"
+              href="/admin/acts"
               className="px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg font-medium text-blue-700 shadow-sm"
             >
               Переглянути акти
