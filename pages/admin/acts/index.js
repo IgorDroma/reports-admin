@@ -24,6 +24,9 @@ export default function ActsList() {
   const [itemsModalItems, setItemsModalItems] = useState([])
   const [itemsModalLoading, setItemsModalLoading] = useState(false)
 
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoModalImages, setPhotoModalImages] = useState([]);
+
   // --- auth guard ---
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null))
@@ -67,6 +70,12 @@ export default function ActsList() {
     }
   }
 
+  function openPhotoModal(images) {
+    setPhotoModalImages(images);
+    setPhotoModalOpen(true);
+  }
+
+  
   async function openItemsModal(act) {
     setItemsModalAct(act)
     setItemsModalItems([])
@@ -202,19 +211,18 @@ export default function ActsList() {
                   <td className="px-2 py-1">{act.act_number}</td>
                   <td className="px-2 py-1">{act.receiver}</td>
                   <td className="px-2 py-1">
-                    {act.photo_url ? (
-                      <a
-                        href={act.photo_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="underline"
+                    {Array.isArray(act.photo_url) && act.photo_url.length > 0 ? (
+                      <button
+                        className="underline text-blue-600"
+                        onClick={() => openPhotoModal(act.photo_url)}
                       >
-                        🖼️
-                      </a>
+                        🖼️ {act.photo_url.length > 1 ? `x${act.photo_url.length}` : ""}
+                      </button>
                     ) : (
-                      ''
+                      ""
                     )}
                   </td>
+
                   <td className="px-2 py-1 space-x-2">
                     <button
                       className="text-blue-600 underline"
@@ -299,6 +307,34 @@ export default function ActsList() {
           </div>
         </div>
       )}
+{/* Модалка фото */}
+        {photoModalOpen && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white p-4 rounded-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-xl font-bold">Фото акту</h2>
+        <button
+          className="text-red-500 text-lg"
+          onClick={() => setPhotoModalOpen(false)}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {photoModalImages.map((url, index) => (
+          <a key={index} href={url} target="_blank" rel="noreferrer">
+            <img
+              src={url}
+              className="w-full max-h-64 object-cover rounded border"
+            />
+          </a>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }
