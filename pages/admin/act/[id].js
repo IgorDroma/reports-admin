@@ -291,3 +291,110 @@ export default function ActEdit() {
         <h2 className="text-lg font-semibold mb-2">Фото акту</h2>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+          {act.photo_url?.map((url, i) => (
+            <div key={i} className="border rounded p-2">
+              <a href={url} target="_blank">
+                <img src={url} className="max-h-40 w-full object-cover" />
+              </a>
+              <button
+                className="text-red-500 text-sm mt-2 underline"
+                onClick={() => deletePhoto(url)}
+              >
+                Видалити
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <label className="block">
+          <span>Додати фото</span>
+          <input
+            type="file"
+            multiple
+            accept="image/*,application/pdf"
+            onChange={handleMultiPhotoUpload}
+            disabled={uploadingPhoto}
+          />
+        </label>
+      </div>
+
+      {/* ITEMS TABLE */}
+      <h2 className="text-lg font-semibold mb-2">Товари</h2>
+
+      <table className="w-full text-sm border mb-3">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="px-2 py-1 text-left">Назва</th>
+            <th className="px-2 py-1 text-left">Категорія</th>
+            <th className="px-2 py-1 text-right">Кількість</th>
+            <th className="px-2 py-1 text-right">Сума</th>
+            <th className="px-2 py-1 text-right">Дії</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map(item => (
+            <tr key={item.id} className="border-t">
+              <td className="px-2 py-1">{item.product_name}</td>
+              <td className="px-2 py-1">{item.category}</td>
+              <td className="px-2 py-1 text-right">{item.quantity}</td>
+              <td className="px-2 py-1 text-right">{item.amount}</td>
+              <td className="px-2 py-1 text-right">
+                <button
+                  className="text-red-500 underline text-xs"
+                  onClick={() => deleteItem(item.id)}
+                >
+                  Видалити
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* ADD ITEM FORM */}
+      <form onSubmit={addItem} className="grid grid-cols-1 md:grid-cols-5 gap-2">
+        <div>
+          <label>Назва</label>
+          <input
+            type="text"
+            value={newItem.product_name}
+            onChange={e => setNewItem(p => ({ ...p, product_name: e.target.value }))}
+            className="w-full border px-2 py-1 rounded"
+          />
+        </div>
+        <div>
+          <label>Категорія</label>
+          <input
+            type="text"
+            value={newItem.category}
+            onChange={e => setNewItem(p => ({ ...p, category: e.target.value }))}
+            className="w-full border px-2 py-1 rounded"
+          />
+        </div>
+        <div>
+          <label>Кількість</label>
+          <input
+            type="number"
+            value={newItem.quantity}
+            onChange={e => setNewItem(p => ({ ...p, quantity: e.target.value }))}
+            className="w-full border px-2 py-1 rounded"
+          />
+        </div>
+        <div>
+          <label>Сума</label>
+          <input
+            type="number"
+            value={newItem.amount}
+            onChange={e => setNewItem(p => ({ ...p, amount: e.target.value }))}
+            className="w-full border px-2 py-1 rounded"
+          />
+        </div>
+        <div>
+          <button className="bg-green-500 text-white px-4 py-2 rounded">
+            Додати
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
