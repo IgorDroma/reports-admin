@@ -46,7 +46,7 @@ export default function DonationsList() {
   }, [user, page]); // pagination refresh
 
   async function loadSources() {
-    const { data } = await supabase.from("donations_sources").select("*").order("source_name");
+    const { data } = await supabase.from("donations_sources").select("*").order("name");
     setSources(data || []);
   }
 
@@ -135,7 +135,7 @@ export default function DonationsList() {
   }
 
 const sourceMap = Object.fromEntries(
-  sources.map((s) => [String(s.id), s.source_name])
+  sources.map((s) => [String(s.id), s.name])
 );
   
   return (
@@ -210,7 +210,7 @@ const sourceMap = Object.fromEntries(
             <option value="">Всі</option>
             {sources.map((src) => (
               <option key={src.id} value={src.id}>
-                {src.source_name}
+                {src.name}
               </option>
             ))}
           </select>
