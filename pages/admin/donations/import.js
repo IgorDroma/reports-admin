@@ -89,51 +89,91 @@ export default function DonationsImport() {
   }
 
   function parseDateTime(dateRaw, timeRaw) {
-    if (!dateRaw) return null
-    let dateStr = String(dateRaw).trim()
-    let timeStr = timeRaw ? String(timeRaw).trim() : ''
+  // Якщо Excel серійне число (дата+час в одному числі)
+  if (typeof dateRaw === 'number' && (!timeRaw || typeof timeRaw !== 'number')) {
+    const dt = XLSX.SSF.parse_date_code(dateRaw);
+    if (dt) {
+      const yyyy = dt.y;
+      const mm = String(dt.m).padStart(2, '0');
+      const dd = String(dt.d).padStart(2, '0');
+      const HH = String(dt.H).padStart(2, '0');
+      const MM = String(dt.M).padStart(2, '0');
+      const SS = String(dt.S || 0).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`;
+    }
+  }
 
-    // Якщо Excel-число (серійна дата)
-    if (typeof dateRaw === 'number') {
-      // XLSX дає їх як числа, конвертуємо
-      const date = XLSX.SSF.parse_date_code(dateRaw)
-      if (date) {
-        const yyyy = date.y
-        const mm = String(date.m).padStart(2, '0')
-        const dd = String(date.d).padStart(2, '0')
-        dateStr = `${yyyy}-${mm}-${dd}`
-        if (!timeRaw) {
-          const HH = String(date.H).padStart(2, '0')
-          const MM = String(date.M).padStart(2, '0')
-          const SS = String(date.S || 0).padStart(2, '0')
-          timeStr = `${HH}:${MM}:${SS}`
+  // Якщо дата текстом у форматі MM/DD/YYYY
+  if (typeof dateRaw === 'string' && dateRaw.includes('/')) {
+    const parts = dateRaw.split('/');
+    if (parts.length === 3) {
+      const mm = parts[0].padStart(2, '0');
+      const dd = parts[1].padStart(2, '0');
+      const yyyy = parts[2];
+      let time = '00:00:00';
+
+      // Якщо timeRaw — число (частка доби Excel)
+      if (typeof timeRaw === 'number') {
+        const dt = XLSX.SSF.parse_date_code(timeRaw);
+        if (dt) {
+          const HH = String(dt.H).padStart(2, '0');
+          const MM = String(dt.M).padStart(2, '0');
+          const SS = String(dt.S || 0).padStart(2, '0');
+          time = `${HH}:${MM}:${SS}`;
         }
       }
-    }
 
-    // Якщо формат DD.MM.YYYY
-    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
-      const [dd, mm, yyyy] = dateStr.split('.')
-      dateStr = `${yyyy}-${mm}-${dd}`
+      return `${yyyy}-${mm}-${dd} ${time}`;
     }
-
-    // Якщо формат YYYY-MM-DD — залишаємо як є
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      // якщо щось дивне — повертаємо як є, нехай PG розбирається
-    }
-
-    // Час
-    if (!timeStr) {
-      timeStr = '00:00:00'
-    } else {
-      if (/^\d{2}:\d{2}$/.test(timeStr)) {
-        timeStr = `${timeStr}:00`
-      }
-    }
-
-    // Формат для Postgres timestamptz: 'YYYY-MM-DD HH:MM:SS'
-    return `${dateStr} ${timeStr}`
   }
+
+  // Якщо Excel-число у timeRaw
+  if (typeof timeRaw === 'number') {
+    const dt = XLSX.SSF.parse_date_code(timeRaw);
+    if (dt) {
+      const HH = String(dt.H).padStart(2, '0');
+      const MM = String(dt.M).padStart(2, '0');
+      const SS = String(dt.S || 0).padStart(2, '0');
+      timeRaw = `${HH}:${MM}:${SS}`;
+    }
+  }
+
+  // Нормалізація текстових дат:
+  let dateStr = String(dateRaw).trim();
+
+  // DD.MM.YYYY → YYYY-MM-DD
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
+    const [dd, mm, yyyy] = dateStr.split('.');
+    dateStr = `${yyyy}-${mm}-${dd}`;
+  }
+
+  // MM/DD/YYYY → YYYY-MM-DD
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+    const [mm, dd, yyyy] = dateStr.split('/');
+    dateStr = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  }
+
+  let timeStr = timeRaw ? String(timeRaw).trim() : '00:00:00';
+
+  // Час у форматі HH:MM
+  if (/^\d{2}:\d{2}$/.test(timeStr)) {
+    timeStr = `${timeStr}:00`;
+  }
+
+  // Час у форматі DDDDD.xxxxx (Excel fraction)
+  if (/^\d+(\.\d+)?$/.test(timeRaw)) {
+    const dt = XLSX.SSF.parse_date_code(Number(timeRaw));
+    if (dt) {
+      const HH = String(dt.H).padStart(2, '0');
+      const MM = String(dt.M).padStart(2, '0');
+      const SS = String(dt.S || 0).padStart(2, '0');
+      timeStr = `${HH}:${MM}:${SS}`;
+    }
+  }
+
+  return `${dateStr} ${timeStr}`;
+}
+
 
   function shouldSkipByPurpose(purposeRaw) {
   if (!purposeRaw) return false;
