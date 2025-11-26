@@ -134,6 +134,10 @@ export default function DonationsList() {
     );
   }
 
+const sourceMap = Object.fromEntries(
+  sources.map((s) => [String(s.id), s.source_name])
+);
+  
   return (
     <div className="max-w-6xl mx-auto p-6">
 
@@ -260,7 +264,7 @@ export default function DonationsList() {
               <td className="px-2 py-1">{d.currency}</td>
 
               <td className="px-2 py-1">
-                {sources.find((s) => s.id === d.source_id)?.source_name || ""}
+                {sourceMap[String(d.source_id)] || ""}
               </td>
 
               <td className="px-2 py-1 text-right">
