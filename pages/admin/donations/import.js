@@ -136,10 +136,15 @@ export default function DonationsImport() {
   }
 
   function shouldSkipByPurpose(purposeRaw) {
-    if (!purposeRaw) return false
-    const s = String(purposeRaw).trim()
-    return s.startsWith('Перерахування ')
-  }
+  if (!purposeRaw) return false;
+
+  const s = String(purposeRaw)
+    .trim()
+    .toLowerCase(); // робимо нижній регістр
+
+  return s.startsWith('перерахування'); 
+}
+
 
   // ---------- PARSE XLSX ----------
   async function handleFileChange(e) {
