@@ -56,12 +56,12 @@ export default function DonationsList() {
     let query = supabase
       .from("donations")
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
+      .order("donated_at", { ascending: false })
       .range(page * pageSize, page * pageSize + pageSize - 1);
 
     // Filters
-    if (dateFrom) query = query.gte("created_at", dateFrom);
-    if (dateTo) query = query.lte("created_at", dateTo + " 23:59:59");
+    if (dateFrom) query = query.gte("donated_at", dateFrom);
+    if (dateTo) query = query.lte("donated_at", dateTo + " 23:59:59");
 
     if (amountFrom)
       query = query.or(
@@ -90,8 +90,8 @@ export default function DonationsList() {
   async function calculateTotals() {
     let totalQuery = supabase.from("donations").select("amount_uah", { count: "exact" });
 
-    if (dateFrom) totalQuery = totalQuery.gte("created_at", dateFrom);
-    if (dateTo) totalQuery = totalQuery.lte("created_at", dateTo + " 23:59:59");
+    if (dateFrom) totalQuery = totalQuery.gte("donated_at", dateFrom);
+    if (dateTo) totalQuery = totalQuery.lte("donated_at", dateTo + " 23:59:59");
 
     if (amountFrom)
       totalQuery = totalQuery.or(
