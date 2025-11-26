@@ -247,7 +247,7 @@ export default function DonationsList() {
           {donations.map((d) => (
             <tr key={d.id} className="border-t">
               <td className="px-2 py-1">
-                {new Date(d.created_at).toLocaleString("uk-UA")}
+                {new Date(d.donated_at).toLocaleString("uk-UA")}
               </td>
 
               <td className="px-2 py-1 text-right">
