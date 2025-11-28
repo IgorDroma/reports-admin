@@ -65,6 +65,12 @@ export default function Home() {
             >
               Переглянути акти
             </a>
+            <a
+              href="/admin/donations"
+              className="px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg font-medium text-blue-700 shadow-sm"
+            >
+              Переглянути донати
+            </a>
           </div>
         </div>
       )}
