@@ -259,7 +259,7 @@ const sourceMap = Object.fromEntries(
           {donations.map((d) => (
             <tr key={d.id} className="border-t">
               <td className="px-2 py-1">
-                {new Date(d.donated_at).toLocaleString("uk-UA")}
+                {new Date(d.donated_at).toLocaleString("uk-UA", { timeZone: "UTC" })}
               </td>
 
               <td className="px-2 py-1 text-right">
