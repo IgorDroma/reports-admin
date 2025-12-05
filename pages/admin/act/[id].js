@@ -1,273 +1,283 @@
 // pages/admin/act/[id].js
-import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
+
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
+import { supabase } from "../../../lib/supabaseClient";
 
 export default function ActEdit() {
-  const router = useRouter()
-  const { id } = router.query
+  const router = useRouter();
+  const { id } = router.query;
 
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(null);
 
-  const [act, setAct] = useState(null)
-  const [items, setItems] = useState([])
+  const [act, setAct] = useState(null);
+  const [items, setItems] = useState([]);
+  const [products, setProducts] = useState([]);
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  // Додавання нового товару
   const [newItem, setNewItem] = useState({
-    product_name: '',
-    category: '',
-    quantity: '',
-    amount: '',
-  })
+    product_id: "",
+    qty: "",
+    price: "",
+  });
 
+  // ---------------------------
+  // AUTH
+  // ---------------------------
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => listener?.subscription?.unsubscribe?.()
-  }, [])
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => setUser(session?.user ?? null)
+    );
+    return () => listener?.subscription?.unsubscribe?.();
+  }, []);
 
+  // ---------------------------
+  // LOAD ACT + ITEMS
+  // ---------------------------
   useEffect(() => {
-    if (!user || !id) return
-    loadAct()
-  }, [user, id])
+    if (!user || !id) return;
+    loadAct();
+    loadProducts();
+  }, [user, id]);
 
   async function loadAct() {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       const { data: actData, error: actError } = await supabase
-        .from('acts')
-        .select('*')
-        .eq('id', id)
-        .single()
+        .from("acts")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-      if (actError) throw actError
+      if (actError) throw actError;
 
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('act_items')
-        .select('*')
-        .eq('act_id', id)
-        .order('created_at', { ascending: true })
+      // load items with JOIN → products + categories
+      const { data: itemsData, error: itemErr } = await supabase
+        .from("act_items")
+        .select(
+          `
+          id,
+          qty,
+          price,
+          sum,
+          products (
+            id,
+            name,
+            product_categories ( name )
+          )
+        `
+        )
+        .eq("act_id", id)
+        .order("created_at", { ascending: true });
 
-      if (itemsError) throw itemsError
+      if (itemErr) throw itemErr;
 
-      // photo_url — масив
-      actData.photo_url = actData.photo_url || []
+      actData.photo_urls = actData.photo_urls || [];
 
-      setAct(actData)
-      setItems(itemsData || [])
+      const mapped = (itemsData || []).map((i) => ({
+        id: i.id,
+        qty: i.qty,
+        price: i.price,
+        sum: i.sum,
+        product_id: i.products?.id,
+        product_name: i.products?.name,
+        category: i.products?.product_categories?.name || "",
+      }));
+
+      setAct(actData);
+      setItems(mapped);
     } catch (err) {
-      console.error(err)
-      setError(err.message)
+      console.error(err);
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  // -------------------------
-  //   ВИДАЛИТИ АКТ
-  // -------------------------
+  async function loadProducts() {
+    const { data } = await supabase
+      .from("products")
+      .select("id, name")
+      .order("name");
+
+    setProducts(data || []);
+  }
+
+  // ---------------------------
+  // DELETE ACT
+  // ---------------------------
   async function deleteAct() {
-    if (!confirm("Видалити акт разом з усіма товарами та фото?")) return;
+    if (!confirm("Видалити акт разом з товарами?")) return;
 
-    const { error } = await supabase
-      .from("acts")
-      .delete()
-      .eq("id", id);
-
+    const { error } = await supabase.from("acts").delete().eq("id", id);
     if (error) {
-      alert("Помилка видалення");
+      alert("Помилка");
       return;
     }
-
-    alert("Акт видалено");
     router.push("/admin/acts");
   }
 
-  // -------------------------
-  //   ЗБЕРЕГТИ АКТ
-  // -------------------------
+  // ---------------------------
+  // SAVE ACT
+  // ---------------------------
   async function saveAct(e) {
-    e.preventDefault()
-    setSaving(true)
-    setError(null)
+    e.preventDefault();
+    setSaving(true);
 
-    try {
-      const { error } = await supabase
-        .from('acts')
-        .update({
-          act_date: act.act_date,
-          act_number: act.act_number,
-          receiver: act.receiver,
-          photo_url: act.photo_url
-        })
-        .eq('id', id)
+    const { error } = await supabase
+      .from("acts")
+      .update({
+        act_date: act.act_date,
+        receiver: act.receiver,
+        total_sum: act.total_sum,
+        photo_urls: act.photo_urls,
+      })
+      .eq("id", id);
 
-      if (error) throw error
-      await loadAct()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
+    if (error) setError(error.message);
+
+    setSaving(false);
+    loadAct();
   }
 
-  // -------------------------
-  //   ДОДАТИ КІЛЬКА ФОТО
-  // -------------------------
+  // ---------------------------
+  // UPLOAD MULTIPLE PHOTOS
+  // ---------------------------
   async function handleMultiPhotoUpload(e) {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    setUploadingPhoto(true)
-    setError(null)
+    setUploadingPhoto(true);
 
     try {
-      let newUrls = [...(act.photo_url || [])]
+      const urls = [...act.photo_urls];
 
-      for (const file of files) {
-        const ext = file.name.split('.').pop()
-        const fileName = `${id}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-        const filePath = `${id}/${fileName}`
+      for (const f of files) {
+        const ext = f.name.split(".").pop();
+        const name = `${id}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}.${ext}`;
+        const path = `${id}/${name}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('acts-files')
-          .upload(filePath, file)
+        const { error: uploadErr } = await supabase.storage
+          .from("acts-files")
+          .upload(path, f);
 
-        if (uploadError) throw uploadError
+        if (uploadErr) throw uploadErr;
 
         const { data } = supabase.storage
-          .from('acts-files')
-          .getPublicUrl(filePath)
+          .from("acts-files")
+          .getPublicUrl(path);
 
-        newUrls.push(data.publicUrl)
+        urls.push(data.publicUrl);
       }
 
-      const { error } = await supabase
-        .from('acts')
-        .update({ photo_url: newUrls })
-        .eq('id', id)
-
-      if (error) throw error
-
-      await loadAct()
+      await supabase.from("acts").update({ photo_urls: urls }).eq("id", id);
+      loadAct();
     } catch (err) {
-      setError(err.message)
-    } finally {
-      setUploadingPhoto(false)
+      setError(err.message);
     }
+
+    setUploadingPhoto(false);
   }
 
-  // -------------------------
-  //    ВИДАЛИТИ ФОТО
-  // -------------------------
+  // ---------------------------
+  // DELETE PHOTO
+  // ---------------------------
   async function deletePhoto(url) {
-    if (!confirm("Видалити це фото?")) return
+    if (!confirm("Видалити фото?")) return;
 
-    const path = url.split("/storage/v1/object/public/acts-files/")[1]
+    const path = url.split("/storage/v1/object/public/acts-files/")[1];
+    await supabase.storage.from("acts-files").remove([path]);
 
-    await supabase.storage
-      .from("acts-files")
-      .remove([path])
+    const newUrls = act.photo_urls.filter((u) => u !== url);
+    await supabase.from("acts").update({ photo_urls: newUrls }).eq("id", id);
 
-    const newUrls = act.photo_url.filter(u => u !== url)
-
-    await supabase
-      .from("acts")
-      .update({ photo_url: newUrls })
-      .eq("id", id)
-
-    await loadAct()
+    loadAct();
   }
 
-  // -------------------------
-  //   ДОДАТИ ТОВАР
-  // -------------------------
+  // ---------------------------
+  // ADD ITEM
+  // ---------------------------
   async function addItem(e) {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!newItem.product_name || !newItem.quantity || !newItem.amount) {
-      setError("Заповніть назву, кількість і суму")
-      return
+    if (!newItem.product_id || !newItem.qty) {
+      setError("Оберіть товар та введіть кількість");
+      return;
     }
 
-    const payload = {
+    const price = Number(newItem.price || 0);
+    const qty = Number(newItem.qty);
+    const sum = price * qty;
+
+    const { error } = await supabase.from("act_items").insert({
       act_id: id,
-      product_name: newItem.product_name,
-      category: newItem.category || null,
-      quantity: Number(newItem.quantity),
-      amount: Number(newItem.amount),
-    }
+      product_id: newItem.product_id,
+      qty,
+      price,
+      sum,
+    });
 
-    const { error } = await supabase.from("act_items").insert(payload)
     if (error) {
-      setError(error.message)
-      return
+      setError(error.message);
+      return;
     }
 
-    setNewItem({ product_name: "", category: "", quantity: "", amount: "" })
-    await loadAct()
+    setNewItem({ product_id: "", qty: "", price: "" });
+    loadAct();
   }
 
+  // ---------------------------
+  // DELETE ITEM
+  // ---------------------------
   async function deleteItem(itemId) {
-    if (!confirm("Видалити товар?")) return
-    await supabase.from("act_items").delete().eq("id", itemId)
-    await loadAct()
+    if (!confirm("Видалити товар?")) return;
+
+    await supabase.from("act_items").delete().eq("id", itemId);
+    loadAct();
   }
 
-  if (!user) {
-    return <div className="flex items-center justify-center h-screen">Авторизуйтесь</div>
-  }
-
-  if (loading || !act) {
-    return <div className="p-6">Завантаження...</div>
-  }
+  // ---------------------------
+  // UI
+  // ---------------------------
+  if (!user) return <div>Авторизація...</div>;
+  if (loading || !act) return <div>Завантаження...</div>;
 
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <button className="mb-4 underline" onClick={() => router.back()}>
+      <button onClick={() => router.back()} className="underline mb-4">
         ← Назад
       </button>
 
-      <h1 className="text-2xl font-bold mb-4">Редагування акту</h1>
+      <h1 className="text-2xl font-bold mb-4">Редагування акту {id}</h1>
 
-      {/* DELETE ACT */}
       <button
-        className="bg-red-500 text-white px-4 py-2 rounded mb-6"
         onClick={deleteAct}
+        className="bg-red-500 text-white px-4 py-2 rounded mb-6"
       >
         Видалити акт
       </button>
 
-      {error && <p className="text-red-500 mb-2">{error}</p>}
-
-      {/* FORM */}
+      {/* --- ACT INFO FORM --- */}
       <form onSubmit={saveAct} className="space-y-3 mb-6">
+
         <div>
-          <label className="block">Дата</label>
+          <label>Дата</label>
           <input
             type="date"
-            value={act.act_date || ''}
-            onChange={e => setAct(a => ({ ...a, act_date: e.target.value }))}
-            className="w-full border px-2 py-1 rounded"
-          />
-        </div>
-
-        <div>
-          <label>Номер акту</label>
-          <input
-            type="text"
-            value={act.act_number}
-            onChange={e => setAct(a => ({ ...a, act_number: e.target.value }))}
-            className="w-full border px-2 py-1 rounded"
+            value={act.act_date || ""}
+            onChange={(e) => setAct({ ...act, act_date: e.target.value })}
+            className="w-full border rounded px-2 py-1"
           />
         </div>
 
@@ -275,53 +285,51 @@ export default function ActEdit() {
           <label>Отримувач</label>
           <input
             type="text"
-            value={act.receiver}
-            onChange={e => setAct(a => ({ ...a, receiver: e.target.value }))}
-            className="w-full border px-2 py-1 rounded"
+            value={act.receiver || ""}
+            onChange={(e) => setAct({ ...act, receiver: e.target.value })}
+            className="w-full border rounded px-2 py-1"
           />
         </div>
 
-        <button className="bg-blue-500 text-white px-4 py-2 rounded">
+        <button
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+          disabled={saving}
+        >
           {saving ? "Збереження..." : "Зберегти"}
         </button>
       </form>
 
-      {/* MULTI PHOTO */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2">Фото акту</h2>
+      {/* --- PHOTOS --- */}
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-          {act.photo_url?.map((url, i) => (
-            <div key={i} className="border rounded p-2">
-              <a href={url} target="_blank">
-                <img src={url} className="max-h-40 w-full object-cover" />
-              </a>
-              <button
-                className="text-red-500 text-sm mt-2 underline"
-                onClick={() => deletePhoto(url)}
-              >
-                Видалити
-              </button>
-            </div>
-          ))}
-        </div>
+      <h2 className="text-lg font-semibold mb-2">Фото акту</h2>
 
-        <label className="block">
-          <span>Додати фото</span>
-          <input
-            type="file"
-            multiple
-            accept="image/*,application/pdf"
-            onChange={handleMultiPhotoUpload}
-            disabled={uploadingPhoto}
-          />
-        </label>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        {act.photo_urls.map((url, i) => (
+          <div key={i} className="border rounded p-2">
+            <a href={url} target="_blank">
+              <img src={url} className="max-h-40 w-full object-cover" />
+            </a>
+            <button
+              className="text-red-500 underline text-sm mt-1"
+              onClick={() => deletePhoto(url)}
+            >
+              Видалити
+            </button>
+          </div>
+        ))}
       </div>
 
-      {/* ITEMS TABLE */}
-      <h2 className="text-lg font-semibold mb-2">Товари</h2>
+      <input
+        type="file"
+        multiple
+        onChange={handleMultiPhotoUpload}
+        disabled={uploadingPhoto}
+      />
 
-      <table className="w-full text-sm border mb-3">
+      {/* --- ITEMS --- */}
+      <h2 className="text-lg font-semibold mt-6 mb-2">Товари</h2>
+
+      <table className="w-full text-sm border mb-4">
         <thead>
           <tr className="bg-gray-100">
             <th className="px-2 py-1 text-left">Назва</th>
@@ -332,16 +340,16 @@ export default function ActEdit() {
           </tr>
         </thead>
         <tbody>
-          {items.map(item => (
-            <tr key={item.id} className="border-t">
-              <td className="px-2 py-1">{item.product_name}</td>
-              <td className="px-2 py-1">{item.category}</td>
-              <td className="px-2 py-1 text-right">{item.quantity}</td>
-              <td className="px-2 py-1 text-right">{item.amount}</td>
+          {items.map((it) => (
+            <tr key={it.id} className="border-t">
+              <td className="px-2 py-1">{it.product_name}</td>
+              <td className="px-2 py-1">{it.category}</td>
+              <td className="px-2 py-1 text-right">{it.qty}</td>
+              <td className="px-2 py-1 text-right">{it.sum}</td>
               <td className="px-2 py-1 text-right">
                 <button
                   className="text-red-500 underline text-xs"
-                  onClick={() => deleteItem(item.id)}
+                  onClick={() => deleteItem(it.id)}
                 >
                   Видалити
                 </button>
@@ -351,50 +359,53 @@ export default function ActEdit() {
         </tbody>
       </table>
 
-      {/* ADD ITEM FORM */}
-      <form onSubmit={addItem} className="grid grid-cols-1 md:grid-cols-5 gap-2">
+      {/* --- ADD ITEM --- */}
+      <form onSubmit={addItem} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+
         <div>
-          <label>Назва</label>
-          <input
-            type="text"
-            value={newItem.product_name}
-            onChange={e => setNewItem(p => ({ ...p, product_name: e.target.value }))}
-            className="w-full border px-2 py-1 rounded"
-          />
+          <label>Товар</label>
+          <select
+            className="w-full border rounded px-2 py-1"
+            value={newItem.product_id}
+            onChange={(e) =>
+              setNewItem({ ...newItem, product_id: e.target.value })
+            }
+          >
+            <option value="">Оберіть товар</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <div>
-          <label>Категорія</label>
-          <input
-            type="text"
-            value={newItem.category}
-            onChange={e => setNewItem(p => ({ ...p, category: e.target.value }))}
-            className="w-full border px-2 py-1 rounded"
-          />
-        </div>
+
         <div>
           <label>Кількість</label>
           <input
             type="number"
-            value={newItem.quantity}
-            onChange={e => setNewItem(p => ({ ...p, quantity: e.target.value }))}
-            className="w-full border px-2 py-1 rounded"
+            className="w-full border rounded px-2 py-1"
+            value={newItem.qty}
+            onChange={(e) => setNewItem({ ...newItem, qty: e.target.value })}
           />
         </div>
+
         <div>
-          <label>Сума</label>
+          <label>Ціна</label>
           <input
             type="number"
-            value={newItem.amount}
-            onChange={e => setNewItem(p => ({ ...p, amount: e.target.value }))}
-            className="w-full border px-2 py-1 rounded"
+            className="w-full border rounded px-2 py-1"
+            value={newItem.price}
+            onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
           />
         </div>
-        <div>
-          <button className="bg-green-500 text-white px-4 py-2 rounded">
+
+        <div className="flex items-end">
+          <button className="bg-green-600 text-white px-4 py-2 rounded w-full">
             Додати
           </button>
         </div>
       </form>
     </div>
-  )
+  );
 }
