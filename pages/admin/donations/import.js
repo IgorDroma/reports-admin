@@ -89,90 +89,69 @@ export default function DonationsImport() {
   }
 
   function parseDateTime(dateRaw, timeRaw) {
-  // Якщо Excel серійне число (дата+час в одному числі)
-  if (typeof dateRaw === 'number' && (!timeRaw || typeof timeRaw !== 'number')) {
+  // 1) Якщо дата — Excel серійне число (з можливим часом)
+  if (typeof dateRaw === 'number') {
     const dt = XLSX.SSF.parse_date_code(dateRaw);
     if (dt) {
       const yyyy = dt.y;
-      const mm = String(dt.m).padStart(2, '0');
-      const dd = String(dt.d).padStart(2, '0');
-      const HH = String(dt.H).padStart(2, '0');
-      const MM = String(dt.M).padStart(2, '0');
-      const SS = String(dt.S || 0).padStart(2, '0');
+      const mm = String(dt.m).padStart(2, "0");
+      const dd = String(dt.d).padStart(2, "0");
+      const HH = String(dt.H).padStart(2, "0");
+      const MM = String(dt.M).padStart(2, "0");
+      const SS = String(dt.S).padStart(2, "0");
       return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`;
     }
   }
 
-  // Якщо дата текстом у форматі MM/DD/YYYY
-  if (typeof dateRaw === 'string' && dateRaw.includes('/')) {
-    const parts = dateRaw.split('/');
-    if (parts.length === 3) {
-      const mm = parts[0].padStart(2, '0');
-      const dd = parts[1].padStart(2, '0');
-      const yyyy = parts[2];
-      let time = '00:00:00';
-
-      // Якщо timeRaw — число (частка доби Excel)
-      if (typeof timeRaw === 'number') {
-        const dt = XLSX.SSF.parse_date_code(timeRaw);
-        if (dt) {
-          const HH = String(dt.H).padStart(2, '0');
-          const MM = String(dt.M).padStart(2, '0');
-          const SS = String(dt.S || 0).padStart(2, '0');
-          time = `${HH}:${MM}:${SS}`;
-        }
-      }
-
-      return `${yyyy}-${mm}-${dd} ${time}`;
-    }
-  }
-
-  // Якщо Excel-число у timeRaw
-  if (typeof timeRaw === 'number') {
+  // Якщо час — Excel дробова частина доби
+  if (typeof timeRaw === "number") {
     const dt = XLSX.SSF.parse_date_code(timeRaw);
     if (dt) {
-      const HH = String(dt.H).padStart(2, '0');
-      const MM = String(dt.M).padStart(2, '0');
-      const SS = String(dt.S || 0).padStart(2, '0');
+      const HH = String(dt.H).padStart(2, "0");
+      const MM = String(dt.M).padStart(2, "0");
+      const SS = String(dt.S).padStart(2, "0");
       timeRaw = `${HH}:${MM}:${SS}`;
     }
   }
 
-  // Нормалізація текстових дат:
-  let dateStr = String(dateRaw).trim();
+  // Приводимо до тексту
+  let dateStr = dateRaw ? String(dateRaw).trim() : "";
+  let timeStr = timeRaw ? String(timeRaw).trim() : "";
 
-  // DD.MM.YYYY → YYYY-MM-DD
+  // 2) Формат "DD.MM.YYYY HH:MM:SS"
+  if (/^\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}(:\d{2})?$/.test(dateStr)) {
+    const [datePart, timePart] = dateStr.split(" ");
+    const [dd, mm, yyyy] = datePart.split(".");
+    return `${yyyy}-${mm}-${dd} ${timePart}`;
+  }
+
+  // 3) Формат "MM/DD/YYYY HH:MM"
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(:\d{2})?$/.test(dateStr)) {
+    const [datePart, timePart] = dateStr.split(" ");
+    const [mm, dd, yyyy] = datePart.split("/");
+    return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")} ${timePart}`;
+  }
+
+  // 4) Роздільні формат "DD.MM.YYYY" + "HH:MM"
   if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
-    const [dd, mm, yyyy] = dateStr.split('.');
-    dateStr = `${yyyy}-${mm}-${dd}`;
+    const [dd, mm, yyyy] = dateStr.split(".");
+    if (!timeStr) timeStr = "00:00:00";
+    if (/^\d{2}:\d{2}$/.test(timeStr)) timeStr += ":00";
+    return `${yyyy}-${mm}-${dd} ${timeStr}`;
   }
 
-  // MM/DD/YYYY → YYYY-MM-DD
+  // 5) Формат MM/DD/YYYY
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
-    const [mm, dd, yyyy] = dateStr.split('/');
-    dateStr = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    const [mm, dd, yyyy] = dateStr.split("/");
+    if (!timeStr) timeStr = "00:00:00";
+    if (/^\d{2}:\d{2}$/.test(timeStr)) timeStr += ":00";
+    return `${yyyy}-${mm}-${dd} ${timeStr}`;
   }
 
-  let timeStr = timeRaw ? String(timeRaw).trim() : '00:00:00';
-
-  // Час у форматі HH:MM
-  if (/^\d{2}:\d{2}$/.test(timeStr)) {
-    timeStr = `${timeStr}:00`;
-  }
-
-  // Час у форматі DDDDD.xxxxx (Excel fraction)
-  if (/^\d+(\.\d+)?$/.test(timeRaw)) {
-    const dt = XLSX.SSF.parse_date_code(Number(timeRaw));
-    if (dt) {
-      const HH = String(dt.H).padStart(2, '0');
-      const MM = String(dt.M).padStart(2, '0');
-      const SS = String(dt.S || 0).padStart(2, '0');
-      timeStr = `${HH}:${MM}:${SS}`;
-    }
-  }
-
-  return `${dateStr} ${timeStr}`;
+  // 6) Фолбек — повертаємо як є
+  return `${dateStr} ${timeStr || "00:00:00"}`;
 }
+
 
 
   function shouldSkipByPurpose(purposeRaw) {
