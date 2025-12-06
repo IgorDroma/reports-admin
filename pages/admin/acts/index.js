@@ -90,6 +90,22 @@ export default function ActsList() {
   loadActs();
 }
 
+  async function deleteActPhoto(url) {
+  if (!confirm("Видалити фото?")) return;
+
+  const path = url.split("/storage/v1/object/public/acts-files/")[1];
+
+  await supabase.storage.from("acts-files").remove([path]);
+
+  const newUrls = photoEditAct.photo_urls.filter((u) => u !== url);
+
+  await supabase.from("acts").update({ photo_urls: newUrls }).eq("id", photoEditAct.id);
+
+  photoEditAct.photo_urls = newUrls;
+  setPhotoEditAct({ ...photoEditAct });
+  loadActs();
+}
+  
   function openPhotoEditModal(act) {
   setPhotoEditAct(act);
   setPhotoEditModalOpen(true);
@@ -132,22 +148,6 @@ export default function ActsList() {
   async function openItemsModal(act) {
     setItemsModalAct(act);
     setItemsModalItems([]);
-    async function deleteActPhoto(url) {
-  if (!confirm("Видалити фото?")) return;
-
-  const path = url.split("/storage/v1/object/public/acts-files/")[1];
-
-  await supabase.storage.from("acts-files").remove([path]);
-
-  const newUrls = photoEditAct.photo_urls.filter((u) => u !== url);
-
-  await supabase.from("acts").update({ photo_urls: newUrls }).eq("id", photoEditAct.id);
-
-  photoEditAct.photo_urls = newUrls;
-  setPhotoEditAct({ ...photoEditAct });
-  loadActs();
-}
-
     setItemsModalLoading(true);
     setItemsModalOpen(true);
 
