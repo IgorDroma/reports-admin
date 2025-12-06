@@ -101,7 +101,7 @@ export default function ActsList() {
       `
       )
       .eq("act_id", act.id)
-      .order("created_at", { ascending: true });
+      .order("id", { ascending: true });
 
     if (error) {
       console.error(error);
