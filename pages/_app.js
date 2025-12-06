@@ -1,10 +1,11 @@
+import "../styles/global.css";
 import Head from "next/head";
 
 function MyApp({ Component, pageProps }) {
   return (
     <>
       <Head>
-        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <title>Admin Panel</title>
       </Head>
       <Component {...pageProps} />
     </>
