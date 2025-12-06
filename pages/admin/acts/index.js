@@ -259,7 +259,7 @@ export default function ActsList() {
             <th className="px-2 py-2 text-right">Сума</th>
     <th className="px-2 py-2 text-left">Фото</th>
 
-    <th className="px-2 py-2 text-left">Дії</th>
+    <th className="px-2 py-2 text-left">Товари</th>
   </tr>
 </thead>
 
