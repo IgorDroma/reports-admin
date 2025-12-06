@@ -199,7 +199,7 @@ export default function ActsList() {
 
         <button
           className="secondary"
-          onClick={() => router.push("/admin/import-json")}
+          onClick={() => router.push("/admin/acts/import")}
         >
           Імпорт JSON
         </button>
