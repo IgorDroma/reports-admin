@@ -1,5 +1,5 @@
 // pages/admin/donations/import.js
-// ⚠ Не забудь: npm install xlsx
+// ⚠ Не забудь: npm in stall xlsx
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
