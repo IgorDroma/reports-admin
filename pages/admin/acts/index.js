@@ -236,15 +236,17 @@ export default function ActsList() {
 
       {/* TABLE */}
       <table style={{ marginTop: 20 }}>
-        <thead>
-          <tr>
-            <th>Дата</th>
-            <th>ID</th>
-            <th>Отримувач</th>
-            <th>Фото</th>
-            <th>Дії</th>
-          </tr>
-        </thead>
+        <thead className="bg-gray-100">
+  <tr>
+    <th className="px-2 py-2 text-left">Дата</th>
+    <th className="px-2 py-2 text-left">ID акту</th>
+    <th className="px-2 py-2 text-left">Отримувач</th>
+            <th className="px-2 py-2 text-right">Сума</th>
+    <th className="px-2 py-2 text-left">Фото</th>
+
+    <th className="px-2 py-2 text-left">Дії</th>
+  </tr>
+</thead>
 
         <tbody>
           {loading ? (
@@ -257,7 +259,9 @@ export default function ActsList() {
                 <td>{act.act_date ? new Date(act.act_date).toLocaleDateString("uk-UA") : ""}</td>
                 <td>{act.id}</td>
                 <td>{act.receiver}</td>
-
+<td className="px-2 py-1 text-right">
+    {act.total_sum?.toLocaleString("uk-UA")} грн
+  </td>
                 <td>
   <button className="secondary" onClick={() => openPhotoEditModal(act)}>
     Фото ({Array.isArray(act.photo_urls) ? act.photo_urls.length : 0})
