@@ -76,44 +76,45 @@ export default function DonationsImport() {
   function parseDateTime(dateRaw, timeRaw) {
   if (!dateRaw) return null;
 
-  // Якщо дата + час у одному полі: "DD.MM.YYYY HH:MM:SS"
-  if (typeof dateRaw === 'string' && dateRaw.includes(' ')) {
-    const [d, t] = dateRaw.split(' ');
+  // CASE 1: дата + час в ОДНОМУ полі: "30.11.2025 14:43:00"
+  if (typeof dateRaw === "string" && dateRaw.includes(" ")) {
+    const [d, t] = dateRaw.trim().split(" ");
     if (/^\d{2}\.\d{2}\.\d{4}$/.test(d) && /^\d{2}:\d{2}:\d{2}$/.test(t)) {
-      const [dd, mm, yyyy] = d.split('.');
+      const [dd, mm, yyyy] = d.split(".");
       return `${yyyy}-${mm}-${dd} ${t}`;
     }
   }
 
-  // Якщо окремо: "11.11.2025" + "19:27:00"
+  // CASE 2: є окрема дата DD.MM.YYYY і окремий час HH:MM:SS
   if (
-    typeof dateRaw === 'string' &&
-    /^\d{2}\.\d{2}\.\d{4}$/.test(dateRaw) &&
-    typeof timeRaw === 'string' &&
-    /^\d{2}:\d{2}:\d{2}$/.test(timeRaw)
+    typeof dateRaw === "string" &&
+    /^\d{2}\.\d{2}\.\d{4}$/.test(dateRaw.trim()) &&
+    typeof timeRaw === "string" &&
+    /^\d{2}:\d{2}:\d{2}$/.test(timeRaw.trim())
   ) {
-    const [dd, mm, yyyy] = dateRaw.split('.');
-    return `${yyyy}-${mm}-${dd} ${timeRaw}`;
+    const [dd, mm, yyyy] = dateRaw.trim().split(".");
+    return `${yyyy}-${mm}-${dd} ${timeRaw.trim()}`;
   }
 
-  // Excel serial (одне число)
-  if (typeof dateRaw === 'number') {
+  // CASE 3: Excel serial number (може бути і дата+час)
+  if (typeof dateRaw === "number") {
     const dt = XLSX.SSF.parse_date_code(dateRaw);
     if (!dt) return null;
 
     const yyyy = dt.y;
-    const mm = String(dt.m).padStart(2, '0');
-    const dd = String(dt.d).padStart(2, '0');
-    const HH = String(dt.H).padStart(2, '0');
-    const MM = String(dt.M).padStart(2, '0');
-    const SS = String(dt.S).padStart(2, '0');
+    const mm = String(dt.m).padStart(2, "0");
+    const dd = String(dt.d).padStart(2, "0");
+    const HH = String(dt.H).padStart(2, "0");
+    const MM = String(dt.M).padStart(2, "0");
+    const SS = String(dt.S).padStart(2, "0");
 
     return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`;
   }
 
-  // НЕКОРЕКТНО — якщо немає часу
+  // ВСІ ІНШІ ВИПАДКИ → не коректно
   return null;
 }
+
 
 
   function shouldSkipByPurpose(purposeRaw) {
