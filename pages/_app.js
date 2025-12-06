@@ -10,10 +10,7 @@ function MyApp({ Component, pageProps }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      {/* Глобальний фон і базові кольори */}
-      <div className="min-h-screen bg-slate-100 text-slate-900">
         <Component {...pageProps} />
-      </div>
     </>
   );
 }
