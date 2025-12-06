@@ -73,37 +73,48 @@ export default function DonationsImport() {
     return Number.isNaN(n) ? null : n
   }
 
-  function parseDateTime(dateRaw) {
-    if (!dateRaw) return null
+  function parseDateTime(dateRaw, timeRaw) {
+  if (!dateRaw) return null;
 
-    // 1) Український формат з часом: DD.MM.YYYY HH:MM:SS
-    if (/^\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2}$/.test(dateRaw)) {
-      const [d, t] = dateRaw.split(' ')
-      const [dd, mm, yyyy] = d.split('.')
-      return `${yyyy}-${mm}-${dd} ${t}`
+  // Якщо дата + час у одному полі: "DD.MM.YYYY HH:MM:SS"
+  if (typeof dateRaw === 'string' && dateRaw.includes(' ')) {
+    const [d, t] = dateRaw.split(' ');
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(d) && /^\d{2}:\d{2}:\d{2}$/.test(t)) {
+      const [dd, mm, yyyy] = d.split('.');
+      return `${yyyy}-${mm}-${dd} ${t}`;
     }
-
-    // 2) Excel-serial (число)
-    if (typeof dateRaw === 'number') {
-      const dt = XLSX.SSF.parse_date_code(dateRaw)
-      if (!dt) return null
-
-      const yyyy = dt.y
-      const mm = String(dt.m).padStart(2, '0')
-      const dd = String(dt.d).padStart(2, '0')
-      const HH = String(dt.H).padStart(2, '0')
-      const MM = String(dt.M).padStart(2, '0')
-      const SS = String(dt.S).padStart(2, '0')
-
-      return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`
-    }
-
-    // 3) Якщо український формат БЕЗ часу → пропускаємо
-    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateRaw)) return null
-
-    // 4) Всі інші випадки → невалідно
-    return null
   }
+
+  // Якщо окремо: "11.11.2025" + "19:27:00"
+  if (
+    typeof dateRaw === 'string' &&
+    /^\d{2}\.\d{2}\.\d{4}$/.test(dateRaw) &&
+    typeof timeRaw === 'string' &&
+    /^\d{2}:\d{2}:\d{2}$/.test(timeRaw)
+  ) {
+    const [dd, mm, yyyy] = dateRaw.split('.');
+    return `${yyyy}-${mm}-${dd} ${timeRaw}`;
+  }
+
+  // Excel serial (одне число)
+  if (typeof dateRaw === 'number') {
+    const dt = XLSX.SSF.parse_date_code(dateRaw);
+    if (!dt) return null;
+
+    const yyyy = dt.y;
+    const mm = String(dt.m).padStart(2, '0');
+    const dd = String(dt.d).padStart(2, '0');
+    const HH = String(dt.H).padStart(2, '0');
+    const MM = String(dt.M).padStart(2, '0');
+    const SS = String(dt.S).padStart(2, '0');
+
+    return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`;
+  }
+
+  // НЕКОРЕКТНО — якщо немає часу
+  return null;
+}
+
 
   function shouldSkipByPurpose(purposeRaw) {
     if (!purposeRaw) return false
