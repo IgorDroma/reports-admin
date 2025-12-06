@@ -1,5 +1,5 @@
 // pages/admin/donations/import.js
-// ⚠ Не забудь: npm install xlsx
+// npm install xlsx
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
@@ -16,8 +16,8 @@ export default function DonationsImport() {
   const [selectedSourceId, setSelectedSourceId] = useState('')
 
   const [fileName, setFileName] = useState('')
-  const [rows, setRows] = useState([]) // parsed rows
-  const [skippedCount, setSkippedCount] = useState(0)
+  const [rows, setRows] = useState([])         // імпортовані рядки
+  const [skippedRows, setSkippedRows] = useState([]) // пропущені рядки
 
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -26,17 +26,14 @@ export default function DonationsImport() {
 
   // ---------- AUTH ----------
   useEffect(() => {
-    async function loadUser() {
-      const { data } = await supabase.auth.getUser()
+    supabase.auth.getUser().then(({ data }) => {
       setUser(data?.user ?? null)
       setLoadingUser(false)
-    }
-
-    loadUser()
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
     })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) =>
+      setUser(session?.user ?? null)
+    )
 
     return () => listener?.subscription?.unsubscribe?.()
   }, [])
@@ -44,168 +41,103 @@ export default function DonationsImport() {
   // ---------- LOAD SOURCES ----------
   useEffect(() => {
     if (!user) return
-
-    async function loadSources() {
-      const { data, error } = await supabase
-        .from('donations_sources')
-        .select('*')
-        .order('name', { ascending: true })
-
-      if (error) {
-        console.error(error)
-        setError('Помилка завантаження джерел (sources)')
-      } else {
-        setSources(data || [])
-      }
-    }
-
-    loadSources()
+    supabase
+      .from('donations_sources')
+      .select('*')
+      .order('name')
+      .then(({ data }) => setSources(data || []))
   }, [user])
 
   // ---------- HELPERS ----------
+
   function normalizeCurrency(raw) {
     if (!raw) return 'UAH'
     const s = String(raw).trim().toUpperCase()
 
-    if (s.startsWith('UAH') || s.startsWith('ГРН')) return 'UAH'
-    if (s === 'USD' || s.includes('ДОЛ')) return 'USD'
-    if (s === 'EUR' || s.includes('ЄВРО')) return 'EUR'
-    if (s === 'PLN' || s.includes('ЗЛОТ')) return 'PLN'
-
-    return s || 'UAH'
+    if (s.includes('UAH') || s.includes('ГРН')) return 'UAH'
+    if (s.includes('USD') || s.includes('ДОЛ')) return 'USD'
+    if (s.includes('EUR') || s.includes('ЄВРО')) return 'EUR'
+    if (s.includes('PLN') || s.includes('ЗЛОТ')) return 'PLN'
+    return s
   }
 
   function parseNumber(raw) {
-    if (raw === null || raw === undefined) return null
+    if (raw == null) return null
     if (typeof raw === 'number') return raw
 
     let s = String(raw).trim()
     if (!s) return null
 
-    // прибираємо пробіли тисяч, замінюємо кому на крапку
     s = s.replace(/\s+/g, '').replace(',', '.')
     const n = parseFloat(s)
     return Number.isNaN(n) ? null : n
   }
 
-  function parseDateTime(dateRaw, timeRaw) {
-  // 1) Якщо дата — Excel серійне число (з можливим часом)
-  if (typeof dateRaw === 'number') {
-    const dt = XLSX.SSF.parse_date_code(dateRaw);
-    if (dt) {
-      const yyyy = dt.y;
-      const mm = String(dt.m).padStart(2, "0");
-      const dd = String(dt.d).padStart(2, "0");
-      const HH = String(dt.H).padStart(2, "0");
-      const MM = String(dt.M).padStart(2, "0");
-      const SS = String(dt.S).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`;
+  function parseDateTime(dateRaw) {
+    if (!dateRaw) return null
+
+    // 1) Український формат з часом: DD.MM.YYYY HH:MM:SS
+    if (/^\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2}$/.test(dateRaw)) {
+      const [d, t] = dateRaw.split(' ')
+      const [dd, mm, yyyy] = d.split('.')
+      return `${yyyy}-${mm}-${dd} ${t}`
     }
-  }
 
-  // Якщо час — Excel дробова частина доби
-  if (typeof timeRaw === "number") {
-    const dt = XLSX.SSF.parse_date_code(timeRaw);
-    if (dt) {
-      const HH = String(dt.H).padStart(2, "0");
-      const MM = String(dt.M).padStart(2, "0");
-      const SS = String(dt.S).padStart(2, "0");
-      timeRaw = `${HH}:${MM}:${SS}`;
+    // 2) Excel-serial (число)
+    if (typeof dateRaw === 'number') {
+      const dt = XLSX.SSF.parse_date_code(dateRaw)
+      if (!dt) return null
+
+      const yyyy = dt.y
+      const mm = String(dt.m).padStart(2, '0')
+      const dd = String(dt.d).padStart(2, '0')
+      const HH = String(dt.H).padStart(2, '0')
+      const MM = String(dt.M).padStart(2, '0')
+      const SS = String(dt.S).padStart(2, '0')
+
+      return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`
     }
+
+    // 3) Якщо український формат БЕЗ часу → пропускаємо
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateRaw)) return null
+
+    // 4) Всі інші випадки → невалідно
+    return null
   }
-
-  // Приводимо до тексту
-  let dateStr = dateRaw ? String(dateRaw).trim() : "";
-  let timeStr = timeRaw ? String(timeRaw).trim() : "";
-
-  // 2) Формат "DD.MM.YYYY HH:MM:SS"
-  if (/^\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}(:\d{2})?$/.test(dateStr)) {
-    const [datePart, timePart] = dateStr.split(" ");
-    const [dd, mm, yyyy] = datePart.split(".");
-    return `${yyyy}-${mm}-${dd} ${timePart}`;
-  }
-
-  // 3) Формат "MM/DD/YYYY HH:MM"
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(:\d{2})?$/.test(dateStr)) {
-    const [datePart, timePart] = dateStr.split(" ");
-    const [mm, dd, yyyy] = datePart.split("/");
-    return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")} ${timePart}`;
-  }
-
-  // 4) Роздільні формат "DD.MM.YYYY" + "HH:MM"
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
-    const [dd, mm, yyyy] = dateStr.split(".");
-    if (!timeStr) timeStr = "00:00:00";
-    if (/^\d{2}:\d{2}$/.test(timeStr)) timeStr += ":00";
-    return `${yyyy}-${mm}-${dd} ${timeStr}`;
-  }
-
-  // 5) Формат MM/DD/YYYY
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
-    const [mm, dd, yyyy] = dateStr.split("/");
-    if (!timeStr) timeStr = "00:00:00";
-    if (/^\d{2}:\d{2}$/.test(timeStr)) timeStr += ":00";
-    return `${yyyy}-${mm}-${dd} ${timeStr}`;
-  }
-
-  // 6) Фолбек — повертаємо як є
-  return `${dateStr} ${timeStr || "00:00:00"}`;
-}
-
-
 
   function shouldSkipByPurpose(purposeRaw) {
-  if (!purposeRaw) return false;
-
-  const s = String(purposeRaw)
-    .trim()
-    .toLowerCase(); // робимо нижній регістр
-
-  return s.startsWith('перерахування'); 
-}
-
+    if (!purposeRaw) return false
+    return String(purposeRaw).trim().toLowerCase().startsWith('перерахування')
+  }
 
   // ---------- PARSE XLSX ----------
   async function handleFileChange(e) {
     const file = e.target.files?.[0]
-    setRows([])
-    setSkippedCount(0)
     setError('')
     setSuccess('')
-    if (!file) {
-      setFileName('')
-      return
-    }
+    setRows([])
+    setSkippedRows([])
+
+    if (!file) return setFileName('')
 
     setFileName(file.name)
     setParsing(true)
 
     try {
-      const buffer = await file.arrayBuffer()
-      const workbook = XLSX.read(buffer, { type: 'array' })
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const sheet = wb.Sheets[wb.SheetNames[0]]
       const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 })
 
       if (!sheetData || sheetData.length < 2) {
-        setError('Файл порожній або не розпізнаний')
-        setParsing(false)
+        setError('Файл порожній або невірний формат')
         return
       }
 
       const header = sheetData[0].map(h => (h ? String(h).trim() : ''))
 
-      // Визначаємо колонки
-      const findIndex = (checkFn) => {
-        for (let i = 0; i < header.length; i++) {
-          const h = header[i].toLowerCase()
-          if (checkFn(h)) return i
-        }
-        return -1
-      }
-
-      const dateIdx = findIndex(h => h.includes('дата'))
-      const timeIdx = findIndex(h => h.includes('час'))
-      // усі колонки "сума"
+      // Знаходимо колонки
+      const dateIdx = header.findIndex(h => h.toLowerCase().includes('дата'))
       const amountIdxs = header
         .map((h, i) => ({ h: h.toLowerCase(), i }))
         .filter(col => col.h.startsWith('сума'))
@@ -216,75 +148,72 @@ export default function DonationsImport() {
         .filter(col => col.h.startsWith('валют'))
         .map(col => col.i)
 
-      const purposeIdx = findIndex(h => h.includes('признач'))
+      const purposeIdx = header.findIndex(h => h.toLowerCase().includes('призн'))
 
       if (dateIdx === -1 || amountIdxs.length === 0 || currencyIdxs.length === 0) {
-        setError('Не вдалося знайти потрібні колонки (дата/сума/валюта)')
-        setParsing(false)
+        setError('Не знайдено колонки дата / сума / валюта')
         return
       }
 
       const mainAmountIdx = amountIdxs[0]
       const mainCurrencyIdx = currencyIdxs[0]
-      const secondAmountIdx = amountIdxs.length > 1 ? amountIdxs[1] : -1
-      const secondCurrencyIdx = currencyIdxs.length > 1 ? currencyIdxs[1] : -1
+      const secondAmountIdx = amountIdxs[1] ?? -1
+      const secondCurrencyIdx = currencyIdxs[1] ?? -1
 
       const parsed = []
-      let skipped = 0
+      const skipped = []
 
       for (let r = 1; r < sheetData.length; r++) {
         const row = sheetData[r]
         if (!row || row.length === 0) continue
 
         const dateRaw = row[dateIdx]
-        const timeRaw = timeIdx >= 0 ? row[timeIdx] : null
-        const amountMainRaw = row[mainAmountIdx]
-        const currencyMainRaw = row[mainCurrencyIdx]
-        const amountSecondRaw = secondAmountIdx >= 0 ? row[secondAmountIdx] : null
-        const currencySecondRaw = secondCurrencyIdx >= 0 ? row[secondCurrencyIdx] : null
-        const purposeRaw = purposeIdx >= 0 ? row[purposeIdx] : null
+        const dateFull = parseDateTime(dateRaw)
 
-        if (shouldSkipByPurpose(purposeRaw)) {
-          skipped++
+        if (!dateFull) {
+          skipped.push({ row, reason: 'Немає коректної дати/часу' })
           continue
         }
 
-        const donated_at = parseDateTime(dateRaw, timeRaw)
-        const amountMain = parseNumber(amountMainRaw)
-        let currencyMain = normalizeCurrency(currencyMainRaw)
+        const purposeRaw = purposeIdx >= 0 ? row[purposeIdx] : null
+        if (shouldSkipByPurpose(purposeRaw)) {
+          skipped.push({ row, reason: 'Перерахування' })
+          continue
+        }
+
+        const amountUAH = parseNumber(row[mainAmountIdx])
+        if (amountUAH == null) {
+          skipped.push({ row, reason: 'Немає суми UAH' })
+          continue
+        }
+
+        let currency = normalizeCurrency(row[mainCurrencyIdx])
 
         let amountCurrency = null
-        // Якщо є друга сума + валюта і валюта відрізняється від UAH
-        if (amountSecondRaw != null && currencySecondRaw != null) {
-          const secondAmount = parseNumber(amountSecondRaw)
-          const secondCurrency = normalizeCurrency(currencySecondRaw)
-          if (secondAmount !== null && secondCurrency && secondCurrency !== 'UAH') {
+        if (secondAmountIdx >= 0) {
+          const secondAmount = parseNumber(row[secondAmountIdx])
+          const secondCurr = normalizeCurrency(row[secondCurrencyIdx])
+
+          if (secondAmount != null && secondCurr !== 'UAH') {
             amountCurrency = secondAmount
-            // В цьому випадку вважаємо валюту саме іноземну
-            currencyMain = secondCurrency
+            currency = secondCurr
           }
         }
 
-        if (!donated_at || amountMain === null) {
-          // можна рахувати як пропущений або зберігати з помилкою
-          skipped++
-          continue
-        }
-
         parsed.push({
-          donated_at,
-          amount_uah: amountMain,
-          currency: currencyMain,
+          donated_at: dateFull,
+          amount_uah: amountUAH,
+          currency,
           amount_currency: amountCurrency,
           purpose: purposeRaw ?? '',
         })
       }
 
       setRows(parsed)
-      setSkippedCount(skipped)
+      setSkippedRows(skipped)
     } catch (err) {
       console.error(err)
-      setError('Помилка розбору XLSX: ' + err.message)
+      setError('Помилка читання XLSX: ' + err.message)
     } finally {
       setParsing(false)
     }
@@ -295,25 +224,19 @@ export default function DonationsImport() {
     setError('')
     setSuccess('')
 
-    if (!user) {
-      setError('Будь ласка, увійдіть у систему.')
-      return
-    }
-
     if (!rows.length) {
       setError('Немає даних для імпорту.')
       return
     }
-
     if (!selectedSourceId) {
-      setError('Оберіть джерело надходження (банк/рахунок).')
+      setError('Оберіть джерело надходження.')
       return
     }
 
     setImporting(true)
 
     try {
-      const payload = rows.map(r => ({
+      const batch = rows.map(r => ({
         donated_at: r.donated_at,
         amount_uah: r.amount_uah,
         currency: r.currency,
@@ -321,138 +244,133 @@ export default function DonationsImport() {
         source_id: selectedSourceId,
       }))
 
-      const chunkSize = 500
-      for (let i = 0; i < payload.length; i += chunkSize) {
-        const chunk = payload.slice(i, i + chunkSize)
-        const { error } = await supabase.from('donations').insert(chunk)
+      const chunk = 500
+      for (let i = 0; i < batch.length; i += chunk) {
+        const slice = batch.slice(i, i + chunk)
+        const { error } = await supabase.from('donations').insert(slice)
         if (error) throw error
       }
 
-      setSuccess(`Успішно імпортовано ${payload.length} записів. Пропущено: ${skippedCount}.`)
+      setSuccess(`Імпортовано ${batch.length}. Пропущено ${skippedRows.length}.`)
       setRows([])
       setFileName('')
     } catch (err) {
-      console.error(err)
       setError('Помилка імпорту: ' + err.message)
     } finally {
       setImporting(false)
     }
   }
 
-  // ---------- RENDER ----------
+  // ---------- UI ----------
+  if (loadingUser) return <div className="p-6">Перевірка авторизації...</div>
 
-  if (loadingUser) {
+  if (!user)
     return (
-      <div className="max-w-3xl mx-auto p-6">
-        <p>Перевірка авторизації...</p>
+      <div className="flex justify-center items-center h-screen">
+        <p>Будь ласка, увійдіть</p>
       </div>
     )
-  }
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-lg">
-          Будь ласка, увійдіть на{' '}
-          <a href="/" className="text-blue-500 underline">
-            сторінці логіну
-          </a>
-        </p>
-      </div>
-    )
-  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <button className="mb-4 underline" onClick={() => router.back()}>
+      <button className="underline mb-4" onClick={() => router.back()}>
         ← Назад
       </button>
 
-      <h1 className="text-2xl font-bold mb-4">Імпорт донатів (XLSX)</h1>
+      <h1 className="text-2xl font-bold mb-4">Імпорт донатів</h1>
 
-      {error && <p className="mb-3 text-red-600">Помилка: {error}</p>}
-      {success && <p className="mb-3 text-green-600">{success}</p>}
+      {error && <p className="text-red-600 mb-3">{error}</p>}
+      {success && <p className="text-green-600 mb-3">{success}</p>}
 
-      <div className="mb-4 space-y-3">
+      {/* FILE + SOURCE */}
+      <div className="space-y-4 mb-6">
         <div>
-          <label className="block mb-1 font-medium">Файл XLSX</label>
+          <label className="font-medium">Файл XLSX</label>
           <input type="file" accept=".xlsx,.xls" onChange={handleFileChange} />
-          {fileName && <p className="text-sm text-gray-600 mt-1">Обраний файл: {fileName}</p>}
+          {fileName && <p className="text-sm mt-1">{fileName}</p>}
         </div>
 
         <div>
-          <label className="block mb-1 font-medium">Джерело надходження (банк / рахунок)</label>
+          <label className="font-medium">Джерело надходження</label>
           <select
             className="border rounded px-2 py-1 w-full max-w-xs"
             value={selectedSourceId}
-            onChange={e => setSelectedSourceId(e.target.value)}
+            onChange={(e) => setSelectedSourceId(e.target.value)}
           >
-            <option value="">— Оберіть джерело —</option>
+            <option value="">— оберіть —</option>
             {sources.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
+              <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-1">
-            Список джерел редагується у Supabase в таблиці <code>donations_sources</code>.
-          </p>
         </div>
-      </div>
 
-      <div className="mb-4">
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-60"
-          disabled={parsing || importing || !rows.length}
+          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          disabled={!rows.length || importing}
           onClick={handleImport}
         >
-          {importing ? 'Імпорт...' : 'Імпортувати в базу'}
+          {importing ? 'Імпорт...' : 'Імпортувати'}
         </button>
       </div>
 
-      <div className="mb-4 text-sm text-gray-700">
-        <p>Розібрано рядків: {rows.length}</p>
-        <p>Пропущено (\"Перерахування ...\" або некоректні): {skippedCount}</p>
-      </div>
-
-      {parsing && <p>Розбір XLSX...</p>}
-
+      {/* PREVIEW */}
       {rows.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold mb-2">Попередній перегляд (перші 50 рядків)</h2>
-          <div className="border rounded max-h-96 overflow-auto text-sm">
-            <table className="w-full border-collapse">
-              <thead className="bg-gray-100">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2">
+            Попередній перегляд ({rows.length} рядків)
+          </h2>
+          <div className="max-h-96 overflow-auto border rounded">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 sticky top-0">
                 <tr>
-                  <th className="border px-2 py-1 text-left">Дата/час</th>
-                  <th className="border px-2 py-1 text-right">Сума грн</th>
-                  <th className="border px-2 py-1 text-left">Валюта</th>
-                  <th className="border px-2 py-1 text-right">Сума у валюті</th>
-                  <th className="border px-2 py-1 text-left">Призначення</th>
+                  <th className="px-2 py-1 border">Дата/час</th>
+                  <th className="px-2 py-1 border">Сума грн</th>
+                  <th className="px-2 py-1 border">Валюта</th>
+                  <th className="px-2 py-1 border">Сума у валюті</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.slice(0, 50).map((r, idx) => (
-                  <tr key={idx} className="border-t">
-                    <td className="border px-2 py-1">{r.donated_at}</td>
-                    <td className="border px-2 py-1 text-right">{r.amount_uah}</td>
-                    <td className="border px-2 py-1">{r.currency}</td>
-                    <td className="border px-2 py-1 text-right">
-                      {r.amount_currency != null ? r.amount_currency : ''}
-                    </td>
-                    <td className="border px-2 py-1">{r.purpose}</td>
+                {rows.slice(0, 50).map((r, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="px-2 py-1 border">{r.donated_at}</td>
+                    <td className="px-2 py-1 border">{r.amount_uah}</td>
+                    <td className="px-2 py-1 border">{r.currency}</td>
+                    <td className="px-2 py-1 border">{r.amount_currency ?? ''}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {rows.length > 50 && (
-            <p className="text-xs text-gray-500 mt-1">
-              Показано перші 50 рядків із {rows.length}.
-            </p>
-          )}
         </div>
       )}
+
+      {/* SKIPPED ROWS */}
+      {skippedRows.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-red-600 mb-2">
+            Пропущені рядки ({skippedRows.length})
+          </h2>
+          <div className="max-h-96 overflow-auto border rounded text-sm">
+            <table className="w-full border-collapse">
+              <thead className="bg-gray-100 sticky top-0">
+                <tr>
+                  <th className="border px-2 py-1">Причина</th>
+                  <th className="border px-2 py-1">Рядок</th>
+                </tr>
+              </thead>
+              <tbody>
+                {skippedRows.map((s, idx) => (
+                  <tr key={idx} className="border-t">
+                    <td className="border px-2 py-1">{s.reason}</td>
+                    <td className="border px-2 py-1">{JSON.stringify(s.row)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
