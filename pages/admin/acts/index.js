@@ -81,6 +81,15 @@ export default function ActsList() {
     setPhotoModalOpen(true);
   }
 
+  function resetFilters() {
+  setDateFrom('');
+  setDateTo('');
+  setReceiver('');
+  setActId('');
+  setPage(0);
+  loadActs();
+}
+
   function openPhotoEditModal(act) {
   setPhotoEditAct(act);
   setPhotoEditModalOpen(true);
@@ -231,6 +240,12 @@ export default function ActsList() {
           <button onClick={() => { setPage(0); loadActs(); }}>
             Застосувати
           </button>
+        <button
+    className="bg-gray-300 px-3 py-2 rounded flex-1"
+    onClick={resetFilters}
+  >
+    Скинути
+  </button>
         </div>
       </div>
 
