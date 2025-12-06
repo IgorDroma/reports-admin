@@ -30,12 +30,12 @@ export default function DonationsList() {
   const [totalAmountUAH, setTotalAmountUAH] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Auth load
+  // Auth
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) =>
+      setUser(session?.user ?? null)
+    );
     return () => listener?.subscription?.unsubscribe?.();
   }, []);
 
@@ -43,10 +43,13 @@ export default function DonationsList() {
     if (!user) return;
     loadSources();
     loadDonations();
-  }, [user, page]); // pagination refresh
+  }, [user, page]);
 
   async function loadSources() {
-    const { data } = await supabase.from("donations_sources").select("*").order("name");
+    const { data } = await supabase
+      .from("donations_sources")
+      .select("*")
+      .order("name");
     setSources(data || []);
   }
 
@@ -77,7 +80,6 @@ export default function DonationsList() {
     if (sourceId) query = query.eq("source_id", sourceId);
 
     const { data, count, error } = await query;
-
     if (!error) {
       setDonations(data || []);
       setTotalRows(count || 0);
@@ -88,7 +90,9 @@ export default function DonationsList() {
   }
 
   async function calculateTotals() {
-    let totalQuery = supabase.from("donations").select("amount_uah", { count: "exact" });
+    let totalQuery = supabase
+      .from("donations")
+      .select("amount_uah", { count: "exact" });
 
     if (dateFrom) totalQuery = totalQuery.gte("donated_at", dateFrom);
     if (dateTo) totalQuery = totalQuery.lte("donated_at", dateTo + " 23:59:59");
@@ -109,98 +113,64 @@ export default function DonationsList() {
     const { data, count } = await totalQuery;
 
     const total = (data || []).reduce((s, d) => s + (d.amount_uah || 0), 0);
-
     setTotalAmountUAH(total);
     setTotalCount(count || 0);
   }
 
   async function deleteDonation(id) {
     if (!confirm("Видалити донат?")) return;
-
     const { error } = await supabase.from("donations").delete().eq("id", id);
     if (!error) loadDonations();
   }
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex text-center" style={{ paddingTop: "40px" }}>
         <p>
-          Please sign in →{" "}
-          <a href="/" className="underline text-blue-600">
-            Login
-          </a>
+          Please sign in → <a href="/" style={{ color: "#2563eb" }}>Login</a>
         </p>
       </div>
     );
   }
 
-const sourceMap = Object.fromEntries(
-  sources.map((s) => [String(s.id), s.name])
-);
-  
+  const sourceMap = Object.fromEntries(
+    sources.map((s) => [String(s.id), s.name])
+  );
+
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="page">
+      <div className="header">
+        <h1 className="title">Список донатів</h1>
+        <button className="btn-light" onClick={() => router.push("/admin/donations/import")}>
+          Імпорт
+        </button>
+      </div>
 
-      <h1 className="text-2xl font-bold mb-4">Список донатів</h1>
-  <div className="flex gap-2">
-          <button
-            className="bg-gray-200 px-3 py-1 rounded"
-            onClick={() => router.push('/admin/donations/import')}
-          >
-            Імпорт
-          </button>
-        </div>
-
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-6">
-
+      {/* FILTERS */}
+      <div className="filters-grid">
         <div>
-          <label className="text-sm">Дата від</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="w-full border rounded px-2 py-1"
-          />
+          <label className="label">Дата від</label>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input" />
         </div>
 
         <div>
-          <label className="text-sm">Дата до</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="w-full border rounded px-2 py-1"
-          />
+          <label className="label">Дата до</label>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input" />
         </div>
 
         <div>
-          <label className="text-sm">Сума від</label>
-          <input
-            type="number"
-            value={amountFrom}
-            onChange={(e) => setAmountFrom(e.target.value)}
-            className="w-full border rounded px-2 py-1"
-          />
+          <label className="label">Сума від</label>
+          <input type="number" value={amountFrom} onChange={(e) => setAmountFrom(e.target.value)} className="input" />
         </div>
 
         <div>
-          <label className="text-sm">Сума до</label>
-          <input
-            type="number"
-            value={amountTo}
-            onChange={(e) => setAmountTo(e.target.value)}
-            className="w-full border rounded px-2 py-1"
-          />
+          <label className="label">Сума до</label>
+          <input type="number" value={amountTo} onChange={(e) => setAmountTo(e.target.value)} className="input" />
         </div>
 
         <div>
-          <label className="text-sm">Валюта</label>
-          <select
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            className="w-full border rounded px-2 py-1"
-          >
+          <label className="label">Валюта</label>
+          <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="input">
             <option value="">Всі</option>
             <option value="UAH">UAH</option>
             <option value="USD">USD</option>
@@ -209,77 +179,71 @@ const sourceMap = Object.fromEntries(
         </div>
 
         <div>
-          <label className="text-sm">Джерело</label>
-          <select
-            value={sourceId}
-            onChange={(e) => setSourceId(e.target.value)}
-            className="w-full border rounded px-2 py-1"
-          >
+          <label className="label">Джерело</label>
+          <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} className="input">
             <option value="">Всі</option>
             {sources.map((src) => (
-              <option key={src.id} value={src.id}>
-                {src.name}
-              </option>
+              <option key={src.id} value={src.id}>{src.name}</option>
             ))}
           </select>
         </div>
-
       </div>
 
-      <button
-        onClick={() => {
-          setPage(0);
-          loadDonations();
-        }}
-        className="mb-6 bg-blue-500 text-white px-4 py-2 rounded"
-      >
-        Застосувати фільтри
-      </button>
+      <div className="filters-buttons">
+        <button className="btn-primary" onClick={() => { setPage(0); loadDonations(); }}>
+          Застосувати
+        </button>
 
-      {/* Totals */}
-      <div className="mb-4 text-lg font-semibold">
-        Загальна сума: {totalAmountUAH.toLocaleString("uk-UA")} грн  
-        <br />
-        Кількість донатів: {totalCount}
+        <button
+          className="btn-gray"
+          onClick={() => {
+            setDateFrom("");
+            setDateTo("");
+            setAmountFrom("");
+            setAmountTo("");
+            setCurrency("");
+            setSourceId("");
+            setPage(0);
+            loadDonations();
+          }}
+        >
+          Скинути фільтри
+        </button>
       </div>
 
-      {/* Table */}
-      <table className="w-full border text-sm">
-        <thead className="bg-gray-100">
+      {/* TOTALS */}
+      <div className="totals-box">
+        <div>Загальна сума: <b>{totalAmountUAH.toLocaleString("uk-UA")} грн</b></div>
+        <div>Кількість донатів: <b>{totalCount}</b></div>
+      </div>
+
+      {/* TABLE */}
+      <table className="table">
+        <thead>
           <tr>
-            <th className="px-2 py-1 text-left">Дата</th>
-            <th className="px-2 py-1 text-right">Сума</th>
-            <th className="px-2 py-1 text-left">Валюта</th>
-            <th className="px-2 py-1 text-left">Джерело</th>
-            <th className="px-2 py-1 text-right">Дії</th>
+            <th>Дата</th>
+            <th className="text-right">Сума</th>
+            <th>Валюта</th>
+            <th>Джерело</th>
+            <th className="text-right">Дії</th>
           </tr>
         </thead>
 
         <tbody>
           {donations.map((d) => (
-            <tr key={d.id} className="border-t">
-              <td className="px-2 py-1">
-                {new Date(d.donated_at).toLocaleString("uk-UA", { timeZone: "UTC" })}
-              </td>
+            <tr key={d.id}>
+              <td>{new Date(d.donated_at).toLocaleString("uk-UA", { timeZone: "UTC" })}</td>
 
-              <td className="px-2 py-1 text-right">
+              <td className="text-right">
                 {d.amount_uah.toLocaleString("uk-UA")} грн{" "}
-                {d.amount_currency
-                  ? `(${d.amount_currency} ${d.currency})`
-                  : ""}
+                {d.amount_currency ? `(${d.amount_currency} ${d.currency})` : ""}
               </td>
 
-              <td className="px-2 py-1">{d.currency}</td>
+              <td>{d.currency}</td>
+              <td>{sourceMap[String(d.source_id)] || ""}</td>
 
-              <td className="px-2 py-1">
-                {sourceMap[String(d.source_id)] || ""}
-              </td>
-
-              <td className="px-2 py-1 text-right">
-                <button
-                  onClick={() => deleteDonation(d.id)}
-                  className="text-red-500 underline text-xs"
-                >
+              <td className="text-right">
+                <button className="btn-delete" onClick={() => deleteDonation(d.id)}>
                   Видалити
                 </button>
               </td>
@@ -288,24 +252,18 @@ const sourceMap = Object.fromEntries(
         </tbody>
       </table>
 
-      {/* Pagination */}
-      <div className="flex items-center gap-4 mt-4">
-        <button
-          disabled={page === 0}
-          onClick={() => setPage(page - 1)}
-          className="px-3 py-1 border rounded disabled:opacity-40"
-        >
+      {/* PAGINATION */}
+      <div className="pagination">
+        <button disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="btn-gray">
           ← Назад
         </button>
 
-        <span>
-          Сторінка {page + 1} / {Math.ceil(totalRows / pageSize)}
-        </span>
+        <span>Сторінка {page + 1} / {Math.ceil(totalRows / pageSize)}</span>
 
         <button
           disabled={(page + 1) * pageSize >= totalRows}
-          onClick={() => setPage(page + 1)}
-          className="px-3 py-1 border rounded disabled:opacity-40"
+          onClick={() => setPage((p) => p + 1)}
+          className="btn-gray"
         >
           Вперед →
         </button>
