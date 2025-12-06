@@ -27,6 +27,9 @@ export default function ActsList() {
   const [itemsModalLoading, setItemsModalLoading] = useState(false);
 
   // Modal: Photos
+  const [photoEditModalOpen, setPhotoEditModalOpen] = useState(false);
+  const [photoEditAct, setPhotoEditAct] = useState(null);
+  
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [photoModalImages, setPhotoModalImages] = useState([]);
 
@@ -78,9 +81,64 @@ export default function ActsList() {
     setPhotoModalOpen(true);
   }
 
+  function openPhotoEditModal(act) {
+  setPhotoEditAct(act);
+  setPhotoEditModalOpen(true);
+}
+
+  async function uploadActPhotos(e) {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+
+  const act = photoEditAct;
+  let urls = [...(act.photo_urls || [])];
+
+  for (const file of files) {
+    const ext = file.name.split(".").pop();
+    const fileName = `${act.id}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const filePath = `${act.id}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("acts-files")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      alert("Помилка завантаження фото");
+      console.error(uploadError);
+      continue;
+    }
+
+    const { data } = supabase.storage.from("acts-files").getPublicUrl(filePath);
+
+    urls.push(data.publicUrl);
+  }
+
+  await supabase.from("acts").update({ photo_urls: urls }).eq("id", act.id);
+
+  act.photo_urls = urls;
+  setPhotoEditAct({ ...act });
+  loadActs(); 
+}
+
   async function openItemsModal(act) {
     setItemsModalAct(act);
     setItemsModalItems([]);
+    async function deleteActPhoto(url) {
+  if (!confirm("Видалити фото?")) return;
+
+  const path = url.split("/storage/v1/object/public/acts-files/")[1];
+
+  await supabase.storage.from("acts-files").remove([path]);
+
+  const newUrls = photoEditAct.photo_urls.filter((u) => u !== url);
+
+  await supabase.from("acts").update({ photo_urls: newUrls }).eq("id", photoEditAct.id);
+
+  photoEditAct.photo_urls = newUrls;
+  setPhotoEditAct({ ...photoEditAct });
+  loadActs();
+}
+
     setItemsModalLoading(true);
     setItemsModalOpen(true);
 
@@ -201,12 +259,11 @@ export default function ActsList() {
                 <td>{act.receiver}</td>
 
                 <td>
-                  {Array.isArray(act.photo_urls) && act.photo_urls.length > 0 && (
-                    <button className="secondary" onClick={() => openPhotoModal(act.photo_urls)}>
-                      Фото ({act.photo_urls.length})
-                    </button>
-                  )}
-                </td>
+  <button className="secondary" onClick={() => openPhotoEditModal(act)}>
+    Фото ({Array.isArray(act.photo_urls) ? act.photo_urls.length : 0})
+  </button>
+</td>
+
 
                 <td>
                   <button
@@ -274,6 +331,54 @@ export default function ActsList() {
           </div>
         </div>
       )}
+
+{photoEditModalOpen && (
+  <div className="modal-bg">
+    <div className="modal-box">
+
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <h2>Фото акту {photoEditAct?.id}</h2>
+        <button className="modal-close" onClick={() => setPhotoEditModalOpen(false)}>
+          ×
+        </button>
+      </div>
+
+      <div className="photo-grid" style={{ marginTop: 20 }}>
+        {photoEditAct?.photo_urls?.length === 0 && <p>Фото немає</p>}
+
+        {photoEditAct?.photo_urls?.map((url, i) => (
+          <div key={i} style={{ position: "relative" }}>
+            <img src={url} style={{ width: "100%", borderRadius: 6 }} />
+
+            <button
+              onClick={() => deleteActPhoto(url)}
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 6,
+                background: "rgba(255,0,0,0.8)",
+                color: "#fff",
+                border: "none",
+                padding: "4px 8px",
+                borderRadius: 4,
+                cursor: "pointer",
+              }}
+            >
+              🗑
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <label>
+          <strong>Додати фото:</strong>
+          <input type="file" multiple accept="image/*" onChange={uploadActPhotos} />
+        </label>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* PHOTO MODAL */}
       {photoModalOpen && (
