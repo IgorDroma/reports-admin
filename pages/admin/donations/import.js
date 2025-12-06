@@ -290,6 +290,16 @@ export default function DonationsImport() {
           continue
         }
 
+        // ❌ Пропускати від’ємні суми
+        if (amountMain < 0) {
+          skipped++
+          skippedList.push({
+            reason: 'Від’ємна сума (грн), пропускаємо',
+            raw: row
+          })
+          continue
+        }
+        
         let currencyMain = normalizeCurrency(currencyMainRaw)
         let amountCurrency = null
 
@@ -302,6 +312,16 @@ export default function DonationsImport() {
             currencyMain = secondCurrency
           }
         }
+        // ❌ Якщо валюта є і вона від’ємна — пропускаємо
+        if (amountCurrency !== null && amountCurrency < 0) {
+          skipped++
+          skippedList.push({
+            reason: 'Від’ємна сума у валюті, пропускаємо',
+            raw: row
+          })
+          continue
+        }
+
 
         parsed.push({
           donated_at,          // вже у вигляді 'YYYY-MM-DD HH:MM:SS'
