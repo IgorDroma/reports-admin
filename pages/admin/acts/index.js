@@ -26,7 +26,8 @@ export default function ActsList() {
   const [itemsModalAct, setItemsModalAct] = useState(null)
   const [itemsModalItems, setItemsModalItems] = useState([])
   const [itemsModalLoading, setItemsModalLoading] = useState(false)
-
+  
+  const [photoModalActId, setPhotoModalActId] = useState(null)
   const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const [photoModalImages, setPhotoModalImages] = useState([])
 
@@ -73,10 +74,74 @@ export default function ActsList() {
   }
 
 
-  function openPhotoModal(images) {
-    setPhotoModalImages(images)
-    setPhotoModalOpen(true)
+  function openPhotoModal(images, actId) {
+  setPhotoModalImages(images);
+  setPhotoModalActId(actId);
+  setPhotoModalOpen(true);
+}
+
+  async function handlePhotoUpload(e) {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+
+  const actId = photoModalActId;
+  let newUrls = [...photoModalImages];
+
+  for (const file of files) {
+    const ext = file.name.split('.').pop();
+    const fileName = `${actId}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${ext}`;
+
+    const filePath = `${actId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("acts-files")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      alert("Помилка завантаження");
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from("acts-files")
+      .getPublicUrl(filePath);
+
+    newUrls.push(data.publicUrl);
   }
+
+  // update DB
+  await supabase
+    .from("acts")
+    .update({ photo_urls: newUrls })
+    .eq("id", actId);
+
+  // update modal state
+  setPhotoModalImages(newUrls);
+}
+
+  async function handleDeletePhoto(url) {
+  if (!confirm("Видалити фото?")) return;
+
+  const actId = photoModalActId;
+
+  // Extract actual path from public URL
+  const path = url.split("/storage/v1/object/public/acts-files/")[1];
+
+  await supabase.storage
+    .from("acts-files")
+    .remove([path]);
+
+  const newList = photoModalImages.filter(u => u !== url);
+
+  await supabase
+    .from("acts")
+    .update({ photo_urls: newList })
+    .eq("id", actId);
+
+  setPhotoModalImages(newList);
+}
 
 
   async function openItemsModal(act) {
@@ -217,7 +282,7 @@ export default function ActsList() {
                       {Array.isArray(act.photo_urls) && act.photo_urls.length > 0 ? (
                         <button
                           className="text-blue-600 underline hover:text-blue-800"
-                          onClick={() => openPhotoModal(act.photo_urls)}
+                          onClick={() => openPhotoModal(act.photo_urls, act.id)}
                         >
                           🖼️ {act.photo_urls.length > 1 ? `x${act.photo_urls.length}` : ""}
                         </button>
@@ -313,31 +378,62 @@ export default function ActsList() {
 
 
       {/* ============================
-          MODAL — PHOTOS
-      ============================ */}
-      {photoModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-3xl w-full max-h-[80vh] overflow-auto">
-            
-            <div className="flex justify-between mb-3">
-              <h2 className="text-xl font-bold">Фото акту</h2>
-              <button onClick={() => setPhotoModalOpen(false)} className="text-red-500 text-2xl">✕</button>
-            </div>
+    MODAL — PHOTOS (with upload & delete)
+============================ */}
+{photoModalOpen && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-auto">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {photoModalImages.map((url, i) => (
-                <a key={i} href={url} target="_blank">
-                  <img
-                    src={url}
-                    className="rounded-lg border max-h-64 w-full object-cover"
-                  />
-                </a>
-              ))}
-            </div>
+      {/* Header */}
+      <div className="flex justify-between mb-4">
+        <h2 className="text-xl font-bold">Фото акту {photoModalActId}</h2>
+        <button
+          onClick={() => setPhotoModalOpen(false)}
+          className="text-red-500 text-2xl hover:text-red-700"
+        >
+          ✕
+        </button>
+      </div>
 
+      {/* PHOTO UPLOAD */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-2 text-gray-700">
+          Додати фото
+        </label>
+        <input
+          type="file"
+          multiple
+          accept="image/*,application/pdf"
+          className="border rounded px-3 py-2 w-full"
+          onChange={handlePhotoUpload}
+        />
+      </div>
+
+      {/* PHOTO GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {photoModalImages.map((url, i) => (
+          <div key={i} className="border p-2 rounded-lg">
+            <a href={url} target="_blank" rel="noreferrer">
+              <img
+                src={url}
+                className="w-full max-h-64 object-cover rounded-lg"
+              />
+            </a>
+
+            <button
+              onClick={() => handleDeletePhoto(url)}
+              className="mt-2 w-full bg-red-500 hover:bg-red-600 text-white text-sm py-1 rounded"
+            >
+              Видалити
+            </button>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
+
+    </div>
+  </div>
+)}
+
 
     </div>
   )
