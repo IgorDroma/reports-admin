@@ -1,5 +1,5 @@
 // pages/admin/donations/import.js
-// npm install xlsx
+// ⚠ Не забудь: npm install xlsx
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
@@ -16,8 +16,9 @@ export default function DonationsImport() {
   const [selectedSourceId, setSelectedSourceId] = useState('')
 
   const [fileName, setFileName] = useState('')
-  const [rows, setRows] = useState([])         // імпортовані рядки
-  const [skippedRows, setSkippedRows] = useState([]) // пропущені рядки
+  const [rows, setRows] = useState([])           // УСПІШНО розібрані рядки
+  const [skippedRows, setSkippedRows] = useState([]) // ПРОПУЩЕНІ рядки з причиною
+  const [skippedCount, setSkippedCount] = useState(0)
 
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -26,14 +27,17 @@ export default function DonationsImport() {
 
   // ---------- AUTH ----------
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser()
       setUser(data?.user ?? null)
       setLoadingUser(false)
-    })
+    }
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) =>
+    loadUser()
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-    )
+    })
 
     return () => listener?.subscription?.unsubscribe?.()
   }, [])
@@ -41,11 +45,22 @@ export default function DonationsImport() {
   // ---------- LOAD SOURCES ----------
   useEffect(() => {
     if (!user) return
-    supabase
-      .from('donations_sources')
-      .select('*')
-      .order('name')
-      .then(({ data }) => setSources(data || []))
+
+    async function loadSources() {
+      const { data, error } = await supabase
+        .from('donations_sources')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error(error)
+        setError('Помилка завантаження джерел (sources)')
+      } else {
+        setSources(data || [])
+      }
+    }
+
+    loadSources()
   }, [user])
 
   // ---------- HELPERS ----------
@@ -54,102 +69,157 @@ export default function DonationsImport() {
     if (!raw) return 'UAH'
     const s = String(raw).trim().toUpperCase()
 
-    if (s.includes('UAH') || s.includes('ГРН')) return 'UAH'
-    if (s.includes('USD') || s.includes('ДОЛ')) return 'USD'
-    if (s.includes('EUR') || s.includes('ЄВРО')) return 'EUR'
-    if (s.includes('PLN') || s.includes('ЗЛОТ')) return 'PLN'
-    return s
+    if (s.startsWith('UAH') || s.startsWith('ГРН')) return 'UAH'
+    if (s === 'USD' || s.includes('ДОЛ')) return 'USD'
+    if (s === 'EUR' || s.includes('ЄВРО')) return 'EUR'
+    if (s === 'PLN' || s.includes('ЗЛОТ')) return 'PLN'
+
+    return s || 'UAH'
   }
 
   function parseNumber(raw) {
-    if (raw == null) return null
+    if (raw === null || raw === undefined) return null
     if (typeof raw === 'number') return raw
 
     let s = String(raw).trim()
     if (!s) return null
 
+    // прибираємо пробіли тисяч, замінюємо кому на крапку
     s = s.replace(/\s+/g, '').replace(',', '.')
     const n = parseFloat(s)
     return Number.isNaN(n) ? null : n
   }
 
+  /**
+   * Парсимо дату+час у формати:
+   *  1) dateRaw = "30.11.2025", timeRaw = "20:37:00"
+   *  2) dateRaw = "30.11.2025 20:37:00", timeRaw = null/порожнє
+   *  3) dateRaw = Excel-serial (число: дата+час)
+   * Якщо немає коректної дати+часу — повертаємо null.
+   */
   function parseDateTime(dateRaw, timeRaw) {
-  if (!dateRaw) return null;
-
-  // CASE 1: дата + час в ОДНОМУ полі: "30.11.2025 14:43:00"
-  if (typeof dateRaw === "string" && dateRaw.includes(" ")) {
-    const [d, t] = dateRaw.trim().split(" ");
-    if (/^\d{2}\.\d{2}\.\d{4}$/.test(d) && /^\d{2}:\d{2}:\d{2}$/.test(t)) {
-      const [dd, mm, yyyy] = d.split(".");
-      return `${yyyy}-${mm}-${dd} ${t}`;
+    if (dateRaw === null || dateRaw === undefined || dateRaw === '') {
+      return null
     }
+
+    // -------- CASE 3: Excel-serial число в dateRaw --------
+    if (typeof dateRaw === 'number') {
+      const dt = XLSX.SSF.parse_date_code(dateRaw)
+      if (!dt) return null
+
+      const yyyy = dt.y
+      const mm = String(dt.m).padStart(2, '0')
+      const dd = String(dt.d).padStart(2, '0')
+      const HH = String(dt.H).padStart(2, '0')
+      const MM = String(dt.M).padStart(2, '0')
+      const SS = String(dt.S || 0).padStart(2, '0')
+
+      return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`
+    }
+
+    // Далі працюємо з текстовою датою
+    let dateStr = String(dateRaw).trim()
+    let timeStr = timeRaw != null ? String(timeRaw).trim() : ''
+
+    // -------- CASE 1: "DD.MM.YYYY HH:MM:SS" в одному полі --------
+    // Наприклад: "30.11.2025 20:37:00"
+    if (dateStr.includes(' ')) {
+      const parts = dateStr.split(/\s+/)
+      if (parts.length >= 2) {
+        const dPart = parts[0]
+        const tPart = parts[1]
+
+        if (/^\d{2}\.\d{2}\.\d{4}$/.test(dPart) && /^\d{2}:\d{2}:\d{2}$/.test(tPart)) {
+          const [dd, mm, yyyy] = dPart.split('.')
+          return `${yyyy}-${mm}-${dd} ${tPart}`
+        }
+      }
+    }
+
+    // -------- CASE 2: окремі дата і час --------
+    // Дата обов'язково DD.MM.YYYY
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
+      // Якщо timeRaw — Excel-serial частка доби
+      if (typeof timeRaw === 'number') {
+        const dt = XLSX.SSF.parse_date_code(timeRaw)
+        if (!dt) return null
+        const HH = String(dt.H).padStart(2, '0')
+        const MM = String(dt.M).padStart(2, '0')
+        const SS = String(dt.S || 0).padStart(2, '0')
+        timeStr = `${HH}:${MM}:${SS}`
+      }
+
+      // Якщо час порожній — вважаємо некоректним
+      if (!timeStr) {
+        return null
+      }
+
+      // Підтримуємо HH:MM або HH:MM:SS
+      if (/^\d{2}:\d{2}$/.test(timeStr)) {
+        timeStr = `${timeStr}:00`
+      }
+
+      if (!/^\d{2}:\d{2}:\d{2}$/.test(timeStr)) {
+        return null
+      }
+
+      const [dd, mm, yyyy] = dateStr.split('.')
+      return `${yyyy}-${mm}-${dd} ${timeStr}`
+    }
+
+    // Якщо дійшли сюди — формат не підтримується
+    return null
   }
-
-  // CASE 2: є окрема дата DD.MM.YYYY і окремий час HH:MM:SS
-  if (
-    typeof dateRaw === "string" &&
-    /^\d{2}\.\d{2}\.\d{4}$/.test(dateRaw.trim()) &&
-    typeof timeRaw === "string" &&
-    /^\d{2}:\d{2}:\d{2}$/.test(timeRaw.trim())
-  ) {
-    const [dd, mm, yyyy] = dateRaw.trim().split(".");
-    return `${yyyy}-${mm}-${dd} ${timeRaw.trim()}`;
-  }
-
-  // CASE 3: Excel serial number (може бути і дата+час)
-  if (typeof dateRaw === "number") {
-    const dt = XLSX.SSF.parse_date_code(dateRaw);
-    if (!dt) return null;
-
-    const yyyy = dt.y;
-    const mm = String(dt.m).padStart(2, "0");
-    const dd = String(dt.d).padStart(2, "0");
-    const HH = String(dt.H).padStart(2, "0");
-    const MM = String(dt.M).padStart(2, "0");
-    const SS = String(dt.S).padStart(2, "0");
-
-    return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`;
-  }
-
-  // ВСІ ІНШІ ВИПАДКИ → не коректно
-  return null;
-}
-
-
 
   function shouldSkipByPurpose(purposeRaw) {
     if (!purposeRaw) return false
-    return String(purposeRaw).trim().toLowerCase().startsWith('перерахування')
+    const s = String(purposeRaw).trim().toLowerCase()
+    return s.startsWith('перерахування')
   }
 
   // ---------- PARSE XLSX ----------
   async function handleFileChange(e) {
     const file = e.target.files?.[0]
-    setError('')
-    setSuccess('')
     setRows([])
     setSkippedRows([])
+    setSkippedCount(0)
+    setError('')
+    setSuccess('')
 
-    if (!file) return setFileName('')
+    if (!file) {
+      setFileName('')
+      return
+    }
 
     setFileName(file.name)
     setParsing(true)
 
     try {
-      const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { type: 'array' })
-      const sheet = wb.Sheets[wb.SheetNames[0]]
+      const buffer = await file.arrayBuffer()
+      const workbook = XLSX.read(buffer, { type: 'array' })
+      const sheet = workbook.Sheets[workbook.SheetNames[0]]
       const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 })
 
       if (!sheetData || sheetData.length < 2) {
-        setError('Файл порожній або невірний формат')
+        setError('Файл порожній або не розпізнаний')
+        setParsing(false)
         return
       }
 
       const header = sheetData[0].map(h => (h ? String(h).trim() : ''))
 
-      // Знаходимо колонки
-      const dateIdx = header.findIndex(h => h.toLowerCase().includes('дата'))
+      // Пошук колонок
+      const findIndex = (checkFn) => {
+        for (let i = 0; i < header.length; i++) {
+          const h = header[i].toLowerCase()
+          if (checkFn(h)) return i
+        }
+        return -1
+      }
+
+      const dateIdx = findIndex(h => h.includes('дата'))
+      const timeIdx = findIndex(h => h.includes('час'))
+
       const amountIdxs = header
         .map((h, i) => ({ h: h.toLowerCase(), i }))
         .filter(col => col.h.startsWith('сума'))
@@ -160,72 +230,94 @@ export default function DonationsImport() {
         .filter(col => col.h.startsWith('валют'))
         .map(col => col.i)
 
-      const purposeIdx = header.findIndex(h => h.toLowerCase().includes('призн'))
+      const purposeIdx = findIndex(h => h.includes('признач'))
 
       if (dateIdx === -1 || amountIdxs.length === 0 || currencyIdxs.length === 0) {
-        setError('Не знайдено колонки дата / сума / валюта')
+        setError('Не вдалося знайти потрібні колонки (дата/сума/валюта)')
+        setParsing(false)
         return
       }
 
       const mainAmountIdx = amountIdxs[0]
       const mainCurrencyIdx = currencyIdxs[0]
-      const secondAmountIdx = amountIdxs[1] ?? -1
-      const secondCurrencyIdx = currencyIdxs[1] ?? -1
+      const secondAmountIdx = amountIdxs.length > 1 ? amountIdxs[1] : -1
+      const secondCurrencyIdx = currencyIdxs.length > 1 ? currencyIdxs[1] : -1
 
       const parsed = []
-      const skipped = []
+      const skippedList = []
+      let skipped = 0
 
       for (let r = 1; r < sheetData.length; r++) {
         const row = sheetData[r]
         if (!row || row.length === 0) continue
 
         const dateRaw = row[dateIdx]
-        const dateFull = parseDateTime(dateRaw)
-
-        if (!dateFull) {
-          skipped.push({ row, reason: 'Немає коректної дати/часу' })
-          continue
-        }
-
+        const timeRaw = timeIdx >= 0 ? row[timeIdx] : null
+        const amountMainRaw = row[mainAmountIdx]
+        const currencyMainRaw = row[mainCurrencyIdx]
+        const amountSecondRaw = secondAmountIdx >= 0 ? row[secondAmountIdx] : null
+        const currencySecondRaw = secondCurrencyIdx >= 0 ? row[secondCurrencyIdx] : null
         const purposeRaw = purposeIdx >= 0 ? row[purposeIdx] : null
+
+        // Пропускаємо "Перерахування..."
         if (shouldSkipByPurpose(purposeRaw)) {
-          skipped.push({ row, reason: 'Перерахування' })
+          skipped++
+          skippedList.push({
+            reason: 'Перерахування (не імпортуємо за умовою)',
+            raw: row
+          })
           continue
         }
 
-        const amountUAH = parseNumber(row[mainAmountIdx])
-        if (amountUAH == null) {
-          skipped.push({ row, reason: 'Немає суми UAH' })
+        const donated_at = parseDateTime(dateRaw, timeRaw)
+
+        if (!donated_at) {
+          skipped++
+          skippedList.push({
+            reason: 'Немає коректної дати/часу',
+            raw: row
+          })
           continue
         }
 
-        let currency = normalizeCurrency(row[mainCurrencyIdx])
+        const amountMain = parseNumber(amountMainRaw)
+        if (amountMain === null) {
+          skipped++
+          skippedList.push({
+            reason: 'Немає коректної суми (грн)',
+            raw: row
+          })
+          continue
+        }
 
+        let currencyMain = normalizeCurrency(currencyMainRaw)
         let amountCurrency = null
-        if (secondAmountIdx >= 0) {
-          const secondAmount = parseNumber(row[secondAmountIdx])
-          const secondCurr = normalizeCurrency(row[secondCurrencyIdx])
 
-          if (secondAmount != null && secondCurr !== 'UAH') {
+        // Друга сума/валюта (якщо є)
+        if (amountSecondRaw != null && currencySecondRaw != null) {
+          const secondAmount = parseNumber(amountSecondRaw)
+          const secondCurrency = normalizeCurrency(currencySecondRaw)
+          if (secondAmount !== null && secondCurrency && secondCurrency !== 'UAH') {
             amountCurrency = secondAmount
-            currency = secondCurr
+            currencyMain = secondCurrency
           }
         }
 
         parsed.push({
-          donated_at: dateFull,
-          amount_uah: amountUAH,
-          currency,
+          donated_at,          // вже у вигляді 'YYYY-MM-DD HH:MM:SS'
+          amount_uah: amountMain,
+          currency: currencyMain,
           amount_currency: amountCurrency,
           purpose: purposeRaw ?? '',
         })
       }
 
       setRows(parsed)
-      setSkippedRows(skipped)
+      setSkippedCount(skipped)
+      setSkippedRows(skippedList)
     } catch (err) {
       console.error(err)
-      setError('Помилка читання XLSX: ' + err.message)
+      setError('Помилка розбору XLSX: ' + err.message)
     } finally {
       setParsing(false)
     }
@@ -236,19 +328,25 @@ export default function DonationsImport() {
     setError('')
     setSuccess('')
 
+    if (!user) {
+      setError('Будь ласка, увійдіть у систему.')
+      return
+    }
+
     if (!rows.length) {
       setError('Немає даних для імпорту.')
       return
     }
+
     if (!selectedSourceId) {
-      setError('Оберіть джерело надходження.')
+      setError('Оберіть джерело надходження (банк/рахунок).')
       return
     }
 
     setImporting(true)
 
     try {
-      const batch = rows.map(r => ({
+      const payload = rows.map(r => ({
         donated_at: r.donated_at,
         amount_uah: r.amount_uah,
         currency: r.currency,
@@ -256,125 +354,174 @@ export default function DonationsImport() {
         source_id: selectedSourceId,
       }))
 
-      const chunk = 500
-      for (let i = 0; i < batch.length; i += chunk) {
-        const slice = batch.slice(i, i + chunk)
-        const { error } = await supabase.from('donations').insert(slice)
+      const chunkSize = 500
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        const chunk = payload.slice(i, i + chunkSize)
+        const { error } = await supabase.from('donations').insert(chunk)
         if (error) throw error
       }
 
-      setSuccess(`Імпортовано ${batch.length}. Пропущено ${skippedRows.length}.`)
+      setSuccess(
+        `Успішно імпортовано ${payload.length} записів. Пропущено: ${skippedCount}.`
+      )
       setRows([])
       setFileName('')
     } catch (err) {
+      console.error(err)
       setError('Помилка імпорту: ' + err.message)
     } finally {
       setImporting(false)
     }
   }
 
-  // ---------- UI ----------
-  if (loadingUser) return <div className="p-6">Перевірка авторизації...</div>
+  // ---------- RENDER ----------
 
-  if (!user)
+  if (loadingUser) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <p>Будь ласка, увійдіть</p>
+      <div className="max-w-3xl mx-auto p-6">
+        <p>Перевірка авторизації...</p>
       </div>
     )
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-lg">
+          Будь ласка, увійдіть на{' '}
+          <a href="/" className="text-blue-500 underline">
+            сторінці логіну
+          </a>
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <button className="underline mb-4" onClick={() => router.back()}>
+      <button className="mb-4 underline" onClick={() => router.back()}>
         ← Назад
       </button>
 
-      <h1 className="text-2xl font-bold mb-4">Імпорт донатів</h1>
+      <h1 className="text-2xl font-bold mb-4">Імпорт донатів (XLSX)</h1>
 
-      {error && <p className="text-red-600 mb-3">{error}</p>}
-      {success && <p className="text-green-600 mb-3">{success}</p>}
+      {error && <p className="mb-3" style={{ color: 'red' }}>Помилка: {error}</p>}
+      {success && <p className="mb-3" style={{ color: 'green' }}>{success}</p>}
 
-      {/* FILE + SOURCE */}
-      <div className="space-y-4 mb-6">
+      <div className="mb-4" style={{ display: 'grid', gap: '12px' }}>
         <div>
-          <label className="font-medium">Файл XLSX</label>
+          <label className="block mb-1" style={{ fontWeight: 500 }}>Файл XLSX</label>
           <input type="file" accept=".xlsx,.xls" onChange={handleFileChange} />
-          {fileName && <p className="text-sm mt-1">{fileName}</p>}
+          {fileName && (
+            <p className="text-sm" style={{ color: '#4b5563', marginTop: 4 }}>
+              Обраний файл: {fileName}
+            </p>
+          )}
         </div>
 
         <div>
-          <label className="font-medium">Джерело надходження</label>
+          <label className="block mb-1" style={{ fontWeight: 500 }}>
+            Джерело надходження (банк / рахунок)
+          </label>
           <select
             className="border rounded px-2 py-1 w-full max-w-xs"
             value={selectedSourceId}
-            onChange={(e) => setSelectedSourceId(e.target.value)}
+            onChange={e => setSelectedSourceId(e.target.value)}
           >
-            <option value="">— оберіть —</option>
+            <option value="">— Оберіть джерело —</option>
             {sources.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
             ))}
           </select>
+          <p className="text-xs" style={{ color: '#6b7280', marginTop: 4 }}>
+            Список джерел редагується у Supabase в таблиці <code>donations_sources</code>.
+          </p>
         </div>
+      </div>
 
+      <div className="mb-4">
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
-          disabled={!rows.length || importing}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+          disabled={parsing || importing || !rows.length}
           onClick={handleImport}
+          style={{ opacity: parsing || importing || !rows.length ? 0.6 : 1 }}
         >
-          {importing ? 'Імпорт...' : 'Імпортувати'}
+          {importing ? 'Імпорт...' : 'Імпортувати в базу'}
         </button>
       </div>
 
-      {/* PREVIEW */}
+      <div className="mb-4 text-sm" style={{ color: '#374151' }}>
+        <p>Розібрано рядків: {rows.length}</p>
+        <p>Пропущено: {skippedCount}</p>
+      </div>
+
+      {parsing && <p>Розбір XLSX...</p>}
+
+      {/* Попередній перегляд успішних рядків */}
       {rows.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-2">
-            Попередній перегляд ({rows.length} рядків)
-          </h2>
-          <div className="max-h-96 overflow-auto border rounded">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 sticky top-0">
+        <div style={{ marginTop: 16 }}>
+          <h2 className="text-lg font-semibold mb-2">Попередній перегляд (перші 50 рядків)</h2>
+          <div
+            className="border rounded max-h-96 overflow-auto text-sm"
+            style={{ border: '1px solid #e5e7eb' }}
+          >
+            <table className="w-full border-collapse">
+              <thead style={{ background: '#f3f4f6' }}>
                 <tr>
-                  <th className="px-2 py-1 border">Дата/час</th>
-                  <th className="px-2 py-1 border">Сума грн</th>
-                  <th className="px-2 py-1 border">Валюта</th>
-                  <th className="px-2 py-1 border">Сума у валюті</th>
+                  <th className="border px-2 py-1 text-left">Дата/час</th>
+                  <th className="border px-2 py-1 text-right">Сума грн</th>
+                  <th className="border px-2 py-1 text-left">Валюта</th>
+                  <th className="border px-2 py-1 text-right">Сума у валюті</th>
+                  <th className="border px-2 py-1 text-left">Призначення</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.slice(0, 50).map((r, i) => (
-                  <tr key={i} className="border-t">
-                    <td className="px-2 py-1 border">{r.donated_at}</td>
-                    <td className="px-2 py-1 border">{r.amount_uah}</td>
-                    <td className="px-2 py-1 border">{r.currency}</td>
-                    <td className="px-2 py-1 border">{r.amount_currency ?? ''}</td>
+                {rows.slice(0, 50).map((r, idx) => (
+                  <tr key={idx} className="border-t">
+                    <td className="border px-2 py-1">{r.donated_at}</td>
+                    <td className="border px-2 py-1 text-right">{r.amount_uah}</td>
+                    <td className="border px-2 py-1">{r.currency}</td>
+                    <td className="border px-2 py-1 text-right">
+                      {r.amount_currency != null ? r.amount_currency : ''}
+                    </td>
+                    <td className="border px-2 py-1">{r.purpose}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {rows.length > 50 && (
+            <p className="text-xs" style={{ color: '#6b7280', marginTop: 4 }}>
+              Показано перші 50 рядків із {rows.length}.
+            </p>
+          )}
         </div>
       )}
 
-      {/* SKIPPED ROWS */}
+      {/* Пропущені рядки */}
       {skippedRows.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-red-600 mb-2">
-            Пропущені рядки ({skippedRows.length})
-          </h2>
-          <div className="max-h-96 overflow-auto border rounded text-sm">
+        <div style={{ marginTop: 24 }}>
+          <h2 className="text-lg font-semibold mb-2">Пропущені рядки</h2>
+          <div
+            className="border rounded max-h-96 overflow-auto text-sm"
+            style={{ border: '1px solid #fecaca', background: '#fef2f2' }}
+          >
             <table className="w-full border-collapse">
-              <thead className="bg-gray-100 sticky top-0">
+              <thead style={{ background: '#fee2e2' }}>
                 <tr>
-                  <th className="border px-2 py-1">Причина</th>
-                  <th className="border px-2 py-1">Рядок</th>
+                  <th className="border px-2 py-1 text-left">Причина</th>
+                  <th className="border px-2 py-1 text-left">Сирі дані рядка</th>
                 </tr>
               </thead>
               <tbody>
-                {skippedRows.map((s, idx) => (
+                {skippedRows.map((row, idx) => (
                   <tr key={idx} className="border-t">
-                    <td className="border px-2 py-1">{s.reason}</td>
-                    <td className="border px-2 py-1">{JSON.stringify(s.row)}</td>
+                    <td className="border px-2 py-1">{row.reason}</td>
+                    <td className="border px-2 py-1">
+                      {JSON.stringify(row.raw)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
