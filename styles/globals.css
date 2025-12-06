@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Твої кастомні стилі */
 html,body,#__next {
   height: 100%;
@@ -47,7 +51,5 @@ button { cursor: pointer; }
   color:#6b7280;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
 
