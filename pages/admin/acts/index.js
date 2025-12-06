@@ -1,299 +1,390 @@
 // pages/admin/acts/index.js
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
-import { supabase } from '../../../lib/supabaseClient'
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { supabase } from "../../../lib/supabaseClient";
 
 export default function ActsList() {
-  const router = useRouter()
-  const [user, setUser] = useState(null)
+  const router = useRouter();
+  const [user, setUser] = useState(null);
 
-  const [acts, setActs] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [acts, setActs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const [page, setPage] = useState(0)
-  const pageSize = 50
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
 
-  // Filters
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [receiver, setReceiver] = useState('')
-  const [actId, setActId] = useState('')
+  // Фільтри
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [receiver, setReceiver] = useState("");
+  const [actId, setActId] = useState("");
 
-  // Modals
-  const [itemsModalOpen, setItemsModalOpen] = useState(false)
-  const [itemsModalAct, setItemsModalAct] = useState(null)
-  const [itemsModalItems, setItemsModalItems] = useState([])
-  const [itemsModalLoading, setItemsModalLoading] = useState(false)
-  
-  const [photoModalActId, setPhotoModalActId] = useState(null)
-  const [photoModalOpen, setPhotoModalOpen] = useState(false)
-  const [photoModalImages, setPhotoModalImages] = useState([])
+  // Модалка товарів
+  const [itemsModalOpen, setItemsModalOpen] = useState(false);
+  const [itemsModalAct, setItemsModalAct] = useState(null);
+  const [itemsModalItems, setItemsModalItems] = useState([]);
+  const [itemsModalLoading, setItemsModalLoading] = useState(false);
+
+  // Модалка фото
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoModalAct, setPhotoModalAct] = useState(null);
+  const [photoModalImages, setPhotoModalImages] = useState([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   // AUTH
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) =>
-      setUser(session?.user ?? null)
-    )
-    return () => listener?.subscription?.unsubscribe?.()
-  }, [])
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => setUser(session?.user ?? null)
+    );
+    return () => listener?.subscription?.unsubscribe?.();
+  }, []);
 
+  // Load acts
   useEffect(() => {
-    if (!user) return
-    loadActs()
-  }, [user, page])
-
+    if (!user) return;
+    loadActs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, page]);
 
   async function loadActs() {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       let query = supabase
-        .from('acts')
-        .select('*', { count: 'exact' })
-        .order('act_date', { ascending: false })
-        .range(page * pageSize, page * pageSize + pageSize - 1)
+        .from("acts")
+        .select("*", { count: "exact" })
+        .order("act_date", { ascending: false })
+        .range(page * pageSize, page * pageSize + pageSize - 1);
 
-      if (dateFrom) query = query.gte('act_date', dateFrom)
-      if (dateTo) query = query.lte('act_date', dateTo + ' 23:59:59')
-      if (receiver) query = query.ilike('receiver', `%${receiver}%`)
-      if (actId) query = query.ilike('id', `%${actId}%`)
+      if (dateFrom) query = query.gte("act_date", dateFrom);
+      if (dateTo) query = query.lte("act_date", dateTo + " 23:59:59");
+      if (receiver) query = query.ilike("receiver", `%${receiver}%`);
+      if (actId) query = query.ilike("id", `%${actId}%`);
 
-      const { data, error } = await query
-      if (error) throw error
-      setActs(data || [])
+      const { data, error } = await query;
+      if (error) throw error;
 
+      setActs(data || []);
     } catch (err) {
-      setError(err.message)
+      console.error(err);
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-
-  function openPhotoModal(images, actId) {
-  setPhotoModalImages(images);
-  setPhotoModalActId(actId);
-  setPhotoModalOpen(true);
-}
-
-  async function handlePhotoUpload(e) {
-  const files = e.target.files;
-  if (!files || files.length === 0) return;
-
-  const actId = photoModalActId;
-  let newUrls = [...photoModalImages];
-
-  for (const file of files) {
-    const ext = file.name.split('.').pop();
-    const fileName = `${actId}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.${ext}`;
-
-    const filePath = `${actId}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("acts-files")
-      .upload(filePath, file);
-
-    if (uploadError) {
-      alert("Помилка завантаження");
-      return;
-    }
-
-    const { data } = supabase.storage
-      .from("acts-files")
-      .getPublicUrl(filePath);
-
-    newUrls.push(data.publicUrl);
-  }
-
-  // update DB
-  await supabase
-    .from("acts")
-    .update({ photo_urls: newUrls })
-    .eq("id", actId);
-
-  // update modal state
-  setPhotoModalImages(newUrls);
-}
-
-  async function handleDeletePhoto(url) {
-  if (!confirm("Видалити фото?")) return;
-
-  const actId = photoModalActId;
-
-  // Extract actual path from public URL
-  const path = url.split("/storage/v1/object/public/acts-files/")[1];
-
-  await supabase.storage
-    .from("acts-files")
-    .remove([path]);
-
-  const newList = photoModalImages.filter(u => u !== url);
-
-  await supabase
-    .from("acts")
-    .update({ photo_urls: newList })
-    .eq("id", actId);
-
-  setPhotoModalImages(newList);
-}
-
+  // --------- МОДАЛКА ТОВАРІВ ---------
 
   async function openItemsModal(act) {
-    setItemsModalAct(act)
-    setItemsModalLoading(true)
-    setItemsModalOpen(true)
+    setItemsModalAct(act);
+    setItemsModalItems([]);
+    setItemsModalLoading(true);
+    setItemsModalOpen(true);
 
     const { data, error } = await supabase
-      .from('act_items')
-      .select(`
+      .from("act_items")
+      .select(
+        `
         id,
         qty,
         sum,
+        price,
         products (
           name,
-          product_categories(name)
+          category_id,
+          product_categories ( name )
         )
-      `)
-      .eq('act_id', act.id)
-
-    if (!error) {
-      setItemsModalItems(
-        (data || []).map(item => ({
-          id: item.id,
-          qty: item.qty,
-          sum: item.sum,
-          product_name: item.products?.name,
-          category: item.products?.product_categories?.name || ''
-        }))
+      `
       )
+      .eq("act_id", act.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      setItemsModalItems([]);
+    } else {
+      const mapped = (data || []).map((item) => ({
+        id: item.id,
+        qty: item.qty,
+        sum: item.sum,
+        price: item.price,
+        product_name: item.products?.name || "",
+        category: item.products?.product_categories?.name || "",
+      }));
+      setItemsModalItems(mapped);
     }
 
-    setItemsModalLoading(false)
+    setItemsModalLoading(false);
   }
 
+  // --------- МОДАЛКА ФОТО ---------
 
-  // ========== RENDER ==========
+  function openPhotoModal(act) {
+    setPhotoModalAct(act);
+    setPhotoModalImages(Array.isArray(act.photo_urls) ? act.photo_urls : []);
+    setPhotoModalOpen(true);
+  }
+
+  async function handlePhotoUpload(e) {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !photoModalAct) return;
+
+    setPhotoUploading(true);
+
+    try {
+      let newUrls = [...photoModalImages];
+
+      for (const file of files) {
+        const ext = file.name.split(".").pop();
+        const fileName = `${photoModalAct.id}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}.${ext}`;
+        const filePath = `${photoModalAct.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("acts-files")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage
+          .from("acts-files")
+          .getPublicUrl(filePath);
+
+        newUrls.push(data.publicUrl);
+      }
+
+      const { error: updateError } = await supabase
+        .from("acts")
+        .update({ photo_urls: newUrls })
+        .eq("id", photoModalAct.id);
+
+      if (updateError) throw updateError;
+
+      // оновлюємо локальний стан
+      setPhotoModalImages(newUrls);
+      setActs((prev) =>
+        prev.map((a) =>
+          a.id === photoModalAct.id ? { ...a, photo_urls: newUrls } : a
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Помилка завантаження фото: " + err.message);
+    } finally {
+      setPhotoUploading(false);
+      // очищаємо інпут, щоб можна було завантажити ті ж файли ще раз
+      e.target.value = "";
+    }
+  }
+
+  async function deletePhoto(url) {
+    if (!photoModalAct) return;
+    if (!confirm("Видалити це фото?")) return;
+
+    try {
+      // витягуємо шлях відносно бакета
+      const prefix = "/storage/v1/object/public/acts-files/";
+      const idx = url.indexOf(prefix);
+      if (idx === -1) {
+        console.warn("Не вдалося визначити шлях файла для видалення");
+      } else {
+        const path = url.slice(idx + prefix.length);
+        await supabase.storage.from("acts-files").remove([path]);
+      }
+
+      const newUrls = photoModalImages.filter((u) => u !== url);
+
+      const { error } = await supabase
+        .from("acts")
+        .update({ photo_urls: newUrls })
+        .eq("id", photoModalAct.id);
+
+      if (error) throw error;
+
+      setPhotoModalImages(newUrls);
+      setActs((prev) =>
+        prev.map((a) =>
+          a.id === photoModalAct.id ? { ...a, photo_urls: newUrls } : a
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Помилка видалення фото: " + err.message);
+    }
+  }
+
+  // --------- UI ---------
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg">
+          Please sign in →{" "}
+          <a href="/" className="text-blue-600 underline">
+            Login
+          </a>
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="mx-auto max-w-6xl p-6 space-y-6">
+      {/* HEADER */}
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">Акти</h1>
+        <button
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          onClick={() => router.push("/admin/import-json")}
+        >
+          Імпорт JSON
+        </button>
+      </header>
 
-      {/* Card */}
-      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-xl p-6">
-
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Акти</h1>
-
-          <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
-            onClick={() => router.push('/admin/import-json')}
-          >
-            Імпорт JSON
-          </button>
-        </div>
-
-
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          
+      {/* ФІЛЬТРИ */}
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">
+          Фільтри
+        </h2>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
           <div>
-            <label className="text-sm font-medium text-gray-700">Дата від</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500">
+              Дата від
+            </label>
             <input
               type="date"
               value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Дата до</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500">
+              Дата до
+            </label>
             <input
               type="date"
               value={dateTo}
-              onChange={e => setDateTo(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Отримувач</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500">
+              Отримувач
+            </label>
             <input
               type="text"
               value={receiver}
-              onChange={e => setReceiver(e.target.value)}
-              placeholder="Пошук..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              onChange={(e) => setReceiver(e.target.value)}
+              className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">ID Акту</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500">
+              ID акту
+            </label>
             <input
               type="text"
               value={actId}
-              onChange={e => setActId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              onChange={(e) => setActId(e.target.value)}
+              className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
             />
           </div>
 
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
             <button
-              onClick={() => { setPage(0); loadActs() }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+              className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500"
+              onClick={() => {
+                setPage(0);
+                loadActs();
+              }}
             >
               Застосувати
             </button>
           </div>
         </div>
+      </section>
 
+      {/* ТАБЛИЦЯ АКТІВ */}
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        {error && (
+          <p className="mb-2 text-sm text-red-500">Помилка: {error}</p>
+        )}
 
-        {/* Table */}
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-700 uppercase text-xs">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Дата</th>
-                <th className="px-4 py-3">ID акту</th>
-                <th className="px-4 py-3">Отримувач</th>
-                <th className="px-4 py-3">Фото</th>
-                <th className="px-4 py-3">Дії</th>
+                <th className="px-3 py-2">Дата</th>
+                <th className="px-3 py-2">ID акту</th>
+                <th className="px-3 py-2">Отримувач</th>
+                <th className="px-3 py-2">Фото</th>
+                <th className="px-3 py-2">Дії</th>
               </tr>
             </thead>
-
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-4">Завантаження…</td></tr>
+                <tr>
+                  <td colSpan={5} className="px-3 py-4 text-center text-sm">
+                    Завантаження...
+                  </td>
+                </tr>
               ) : acts.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-4">Немає актів</td></tr>
+                <tr>
+                  <td colSpan={5} className="px-3 py-4 text-center text-sm">
+                    Немає актів
+                  </td>
+                </tr>
               ) : (
-                acts.map(act => (
-                  <tr key={act.id} className="border-t hover:bg-gray-50 transition">
-                    <td className="px-4 py-2">{new Date(act.act_date).toLocaleDateString('uk-UA')}</td>
-                    <td className="px-4 py-2 font-mono">{act.id}</td>
-                    <td className="px-4 py-2">{act.receiver}</td>
-
-                    <td className="px-4 py-2">
-                      {Array.isArray(act.photo_urls) && act.photo_urls.length > 0 ? (
+                acts.map((act) => (
+                  <tr
+                    key={act.id}
+                    className="border-t border-slate-100 hover:bg-slate-50/60"
+                  >
+                    <td className="px-3 py-2 align-top">
+                      {act.act_date
+                        ? new Date(act.act_date).toLocaleDateString("uk-UA")
+                        : ""}
+                    </td>
+                    <td className="px-3 py-2 align-top font-mono text-xs text-slate-700">
+                      {act.id}
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <span className="text-sm">{act.receiver}</span>
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      {Array.isArray(act.photo_urls) &&
+                      act.photo_urls.length > 0 ? (
                         <button
-                          className="text-blue-600 underline hover:text-blue-800"
-                          onClick={() => openPhotoModal(act.photo_urls, act.id)}
+                          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-500"
+                          onClick={() => openPhotoModal(act)}
                         >
-                          🖼️ {act.photo_urls.length > 1 ? `x${act.photo_urls.length}` : ""}
+                          <span>🖼️</span>
+                          <span>
+                            Фото
+                            {act.photo_urls.length > 1
+                              ? ` x${act.photo_urls.length}`
+                              : ""}
+                          </span>
                         </button>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-xs text-slate-400">
+                          Немає фото
+                        </span>
                       )}
                     </td>
-
-                    <td className="px-4 py-2">
+                    <td className="px-3 py-2 align-top">
                       <button
-                        className="text-blue-600 underline hover:text-blue-800 mr-3"
+                        className="mr-3 text-sm font-medium text-blue-600 hover:text-blue-500"
                         onClick={() => openItemsModal(act)}
                       >
                         Товари
@@ -306,43 +397,39 @@ export default function ActsList() {
           </table>
         </div>
 
-
-        {/* Pagination */}
-        <div className="flex justify-between items-center mt-6">
+        {/* ПАГІНАЦІЯ */}
+        <div className="mt-4 flex items-center justify-between text-sm">
           <button
             disabled={page === 0}
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            className="px-4 py-2 border rounded-lg disabled:opacity-40 bg-white hover:bg-gray-50 transition"
+            className="rounded-md border border-slate-200 px-3 py-1 disabled:opacity-40"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
           >
             ← Назад
           </button>
-
-          <span className="text-gray-600">Сторінка {page + 1}</span>
-
+          <span className="text-slate-500">Сторінка {page + 1}</span>
           <button
-            onClick={() => setPage(p => p + 1)}
-            className="px-4 py-2 border rounded-lg bg-white hover:bg-gray-50 transition"
+            className="rounded-md border border-slate-200 px-3 py-1"
+            onClick={() => setPage((p) => p + 1)}
           >
             Вперед →
           </button>
         </div>
+      </section>
 
-      </div>
-
-
-
-      {/* ============================
-          MODAL — ITEMS
-      ============================ */}
+      {/* МОДАЛКА ТОВАРІВ */}
       {itemsModalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-3xl w-full max-h-[80vh] overflow-auto">
-
-            <div className="flex justify-between mb-4">
-              <h2 className="text-xl font-semibold">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-4 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">
                 Товари акту {itemsModalAct?.id}
               </h2>
-              <button onClick={() => setItemsModalOpen(false)} className="text-red-500 text-2xl">✕</button>
+              <button
+                className="text-lg text-slate-400 hover:text-red-500"
+                onClick={() => setItemsModalOpen(false)}
+              >
+                ✕
+              </button>
             </div>
 
             {itemsModalLoading ? (
@@ -350,91 +437,104 @@ export default function ActsList() {
             ) : itemsModalItems.length === 0 ? (
               <p>Немає товарів</p>
             ) : (
-              <table className="w-full text-sm border rounded">
-                <thead className="bg-gray-100">
+              <table className="min-w-full text-sm border border-slate-100 rounded-md overflow-hidden">
+                <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 text-left">Назва</th>
-                    <th className="px-3 py-2 text-left">Категорія</th>
-                    <th className="px-3 py-2 text-right">Кількість</th>
-                    <th className="px-3 py-2 text-right">Сума</th>
+                    <th className="px-2 py-1 text-left">Назва</th>
+                    <th className="px-2 py-1 text-left">Категорія</th>
+                    <th className="px-2 py-1 text-right">Кількість</th>
+                    <th className="px-2 py-1 text-right">Сума</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {itemsModalItems.map(item => (
-                    <tr key={item.id} className="border-t">
-                      <td className="px-3 py-1">{item.product_name}</td>
-                      <td className="px-3 py-1">{item.category}</td>
-                      <td className="px-3 py-1 text-right">{item.qty}</td>
-                      <td className="px-3 py-1 text-right">{item.sum.toLocaleString('uk-UA')}</td>
+                  {itemsModalItems.map((it) => (
+                    <tr key={it.id} className="border-t border-slate-100">
+                      <td className="px-2 py-1">{it.product_name}</td>
+                      <td className="px-2 py-1">{it.category}</td>
+                      <td className="px-2 py-1 text-right">{it.qty}</td>
+                      <td className="px-2 py-1 text-right">
+                        {it.sum.toLocaleString("uk-UA")}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-
           </div>
         </div>
       )}
 
+      {/* МОДАЛКА ФОТО */}
+      {photoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white p-4 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">
+                Фото акту {photoModalAct?.id}
+              </h2>
+              <button
+                className="text-lg text-slate-400 hover:text-red-500"
+                onClick={() => setPhotoModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
 
-      {/* ============================
-    MODAL — PHOTOS (with upload & delete)
-============================ */}
-{photoModalOpen && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-xl shadow-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-auto">
+            {/* Грід із фото */}
+            {photoModalImages.length === 0 ? (
+              <p className="mb-4 text-sm text-slate-500">
+                Фото ще не завантажені
+              </p>
+            ) : (
+              <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {photoModalImages.map((url, index) => (
+                  <div
+                    key={index}
+                    className="overflow-hidden rounded-lg border border-slate-200"
+                  >
+                    <a href={url} target="_blank" rel="noreferrer">
+                      <img
+                        src={url}
+                        className="h-64 w-full object-cover"
+                        alt={`Фото ${index + 1}`}
+                      />
+                    </a>
+                    <div className="flex justify-between border-t border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      <span className="truncate">{url}</span>
+                      <button
+                        className="ml-2 text-red-500 hover:text-red-600"
+                        onClick={() => deletePhoto(url)}
+                      >
+                        Видалити
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-      {/* Header */}
-      <div className="flex justify-between mb-4">
-        <h2 className="text-xl font-bold">Фото акту {photoModalActId}</h2>
-        <button
-          onClick={() => setPhotoModalOpen(false)}
-          className="text-red-500 text-2xl hover:text-red-700"
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* PHOTO UPLOAD */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium mb-2 text-gray-700">
-          Додати фото
-        </label>
-        <input
-          type="file"
-          multiple
-          accept="image/*,application/pdf"
-          className="border rounded px-3 py-2 w-full"
-          onChange={handlePhotoUpload}
-        />
-      </div>
-
-      {/* PHOTO GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {photoModalImages.map((url, i) => (
-          <div key={i} className="border p-2 rounded-lg">
-            <a href={url} target="_blank" rel="noreferrer">
-              <img
-                src={url}
-                className="w-full max-h-64 object-cover rounded-lg"
+            {/* Завантаження нових фото */}
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm">
+              <p className="mb-2 font-medium text-slate-700">
+                Додати фото / PDF
+              </p>
+              <input
+                type="file"
+                multiple
+                accept="image/*,application/pdf"
+                onChange={handlePhotoUpload}
+                disabled={photoUploading}
+                className="text-sm"
               />
-            </a>
-
-            <button
-              onClick={() => handleDeletePhoto(url)}
-              className="mt-2 w-full bg-red-500 hover:bg-red-600 text-white text-sm py-1 rounded"
-            >
-              Видалити
-            </button>
+              {photoUploading && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Завантаження...
+                </p>
+              )}
+            </div>
           </div>
-        ))}
-      </div>
-
+        </div>
+      )}
     </div>
-  </div>
-)}
-
-
-    </div>
-  )
+  );
 }
