@@ -154,3 +154,111 @@ input, select {
 .space-x-2 > * + * {
   margin-left: 0.5rem;
 }
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.label {
+  font-size: 13px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+}
+
+.btn-light {
+  background: #e5e7eb;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+}
+
+.btn-gray {
+  background: #f3f4f6;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+}
+
+.btn-delete {
+  color: #dc2626;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.filters-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.totals-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.table th {
+  background: #f1f5f9;
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.table td {
+  padding: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.pagination {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 20px;
+}
