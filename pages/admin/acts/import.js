@@ -220,12 +220,14 @@ export default function ActsImport() {
 
     setImporting(true)
 
+    const batchId = crypto.randomUUID()
+    
     try {
       const skipped = []
       let imported = 0
 
       for (const act of jsonData) {
-        const res = await importAct(act)
+        const res = await importAct(act, batchId)
         if (res.skipped) {
           skipped.push(act.id)
         } else {
@@ -233,6 +235,14 @@ export default function ActsImport() {
         }
       }
 
+      await supabase.from("acts_imports").insert({
+        batch_id: batchId,
+        file_name: fileName,
+        user_id: user.id,
+        inserted_count: imported,
+        skipped_count: skipped.length,
+      })
+      
       setResult({
         imported,
         skipped,
