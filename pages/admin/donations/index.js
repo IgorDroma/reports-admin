@@ -141,12 +141,17 @@ export default function DonationsList() {
     <div className="page">
       <div className="header">
         <h1 className="title">Список донатів</h1>
-        <button className="btn-primary" onClick={() => router.push("/admin/donations/import")}>
+        <div>
+    <button className="btn-primary" onClick={() => router.push("/admin/donations/import")}>
           Імпорт
         </button>
             <button className="btn-primary" onClick={() => router.push("/admin/donations/imports")}>
           Список імпортів
         </button>
+            <button className="btn-primary" onClick={() => router.push("/")}>
+          На головну
+        </button>
+            </div>
       </div>
 
       {/* FILTERS */}
