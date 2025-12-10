@@ -174,7 +174,7 @@ export default function DonationsImport() {
   function shouldSkipByPurpose(purposeRaw) {
     if (!purposeRaw) return false
     const s = String(purposeRaw).trim().toLowerCase()
-    return s.startsWith('перерахування')
+    return s.startsWith('перерахува')
   }
 
   // ---------- PARSE XLSX ----------
