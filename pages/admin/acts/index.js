@@ -219,6 +219,12 @@ export default function ActsList() {
         >
           Імпорт JSON
         </button>
+            <button
+          className="secondary"
+          onClick={() => router.push("/admin/acts/imports")}
+        >
+          Список імпортів
+        </button>
             </div>
       </div>
 
