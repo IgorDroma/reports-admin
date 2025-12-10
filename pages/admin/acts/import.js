@@ -29,25 +29,30 @@ export default function ActsImport() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
 
+  // -------------------------------
+  // AUTH
+  // -------------------------------
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) =>
       setUser(session?.user ?? null)
-    })
+    )
+
     return () => listener?.subscription?.unsubscribe?.()
   }, [])
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-lg">
-          Please sign in on{' '}
-          <a href="/" className="text-blue-500 underline">login</a>
-        </p>
+      <div className="page">
+        <p>Будь ласка, увійдіть у систему.</p>
       </div>
     )
   }
 
+  // -------------------------------
+  // FILE LOAD
+  // -------------------------------
   async function handleFileChange(e) {
     const file = e.target.files?.[0]
     setError('')
@@ -73,84 +78,89 @@ export default function ActsImport() {
     }
   }
 
+  // -------------------------------
+  // CATEGORY
+  // -------------------------------
   async function findOrCreateCategory(name) {
     if (!name || !name.trim()) return null
+
+    const trimmed = name.trim()
 
     let { data, error } = await supabase
       .from('product_categories')
       .select('id')
-      .eq('name', name.trim())
+      .eq('name', trimmed)
       .limit(1)
 
     if (error) throw error
+    if (data?.[0]) return data[0].id
 
-    const existing = data?.[0]
-    if (existing) return existing.id
-
-    const { data: created, error: createError } = await supabase
+    const { data: created, error: createErr } = await supabase
       .from('product_categories')
-      .insert({ name: name.trim() })
+      .insert({ name: trimmed })
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createErr) throw createErr
     return created.id
   }
 
+  // -------------------------------
+  // PRODUCT (FIXED!)
+  // -------------------------------
   async function findOrCreateProduct(item) {
     let { data, error } = await supabase
       .from('products')
       .select('id')
-      .eq('id', item.product_id)
+      .eq('product_id', item.product_id) // ← ГОЛОВНЕ ВИПРАВЛЕННЯ
       .limit(1)
 
     if (error) throw error
 
-    const existing = data?.[0]
-    if (existing) return existing.id
+    if (data?.[0]) return data[0].id
 
     let categoryId = null
-    if (item.product_cat && item.product_cat.trim()) {
+    if (item.product_cat?.trim()) {
       categoryId = await findOrCreateCategory(item.product_cat)
     }
 
-    const { data: created, error: createError } = await supabase
+    const { data: created, error: createErr } = await supabase
       .from('products')
       .insert({
-        id: item.product_id,
+        product_id: item.product_id,   // ← ГОЛОВНЕ ВИПРАВЛЕННЯ
         name: item.product_name,
         category_id: categoryId
       })
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createErr) throw createErr
     return created.id
   }
 
-  async function importAct(actJson, imported_batch_id) {
+  // -------------------------------
+  // IMPORT ONE ACT
+  // -------------------------------
+  async function importAct(actJson, batchId) {
     const mapped = mapReceiver(actJson.receiver, actJson.receiver_group)
-
-    if (!mapped.allowed) {
-      return { skipped: true }
-    }
+    if (!mapped.allowed) return { skipped: true }
 
     const receiverFinal = mapped.receiver
     const items = actJson.items || []
 
-    const itemsSum = items.reduce((s, it) => s + Number(it.sum || 0), 0)
-    const total_sum = actJson.total_sum != null ? actJson.total_sum : itemsSum
+    const total_sum = actJson.total_sum ?? items.reduce((s, it) => s + Number(it.sum || 0), 0)
     const items_count = items.length
 
-    let { data: actRows, error: actSelectError } = await supabase
+    // Перевіряємо, чи існує акт
+    const { data: existingRows, error: selectErr } = await supabase
       .from('acts')
       .select('id')
       .eq('id', actJson.id)
       .limit(1)
 
-    if (actSelectError) throw actSelectError
+    if (selectErr) throw selectErr
 
-    const existingAct = actRows?.[0]
+    const exists = existingRows?.[0]
 
     const actPayload = {
       id: actJson.id,
@@ -158,39 +168,39 @@ export default function ActsImport() {
       receiver: receiverFinal,
       total_sum,
       items_count,
-      imported_batch_id // 🔥 NEW
+      imported_batch_id: batchId // ← ВАЖЛИВО
     }
 
-    if (!existingAct) {
-      const { error: insertError } = await supabase
-        .from('acts')
-        .insert(actPayload)
-
-      if (insertError) throw insertError
+    if (!exists) {
+      const { error: insertErr } = await supabase.from('acts').insert(actPayload)
+      if (insertErr) throw insertErr
     } else {
-      const { error: updateError } = await supabase
+      // update
+      const { error: updateErr } = await supabase
         .from('acts')
         .update(actPayload)
         .eq('id', actJson.id)
 
-      if (updateError) throw updateError
+      if (updateErr) throw updateErr
 
-      const { error: delError } = await supabase
+      // delete old items
+      const { error: delErr } = await supabase
         .from('act_items')
         .delete()
         .eq('act_id', actJson.id)
 
-      if (delError) throw delError
+      if (delErr) throw delErr
     }
 
+    // Add items
     for (const item of items) {
       const productId = await findOrCreateProduct(item)
 
       const qty = Number(item.qty || 0)
       const sum = Number(item.sum || 0)
-      const price = qty !== 0 ? sum / qty : Number(item.price || 0)
+      const price = qty ? sum / qty : 0
 
-      const { error: itemError } = await supabase.from('act_items').insert({
+      const { error: itemErr } = await supabase.from('act_items').insert({
         act_id: actJson.id,
         product_id: productId,
         qty,
@@ -198,26 +208,26 @@ export default function ActsImport() {
         sum
       })
 
-      if (itemError) throw itemError
+      if (itemErr) throw itemErr
     }
 
     return { skipped: false }
   }
 
+  // -------------------------------
+  // IMPORT ALL
+  // -------------------------------
   async function handleImport() {
     setError('')
     setResult(null)
 
-    if (!jsonData || jsonData.length === 0) {
+    if (!jsonData?.length) {
       setError('Спочатку завантаж файл JSON')
       return
     }
 
     setImporting(true)
 
-    // -----------------------------------
-    // 🔥 NEW — створюємо batchId
-    // -----------------------------------
     const batchId = crypto.randomUUID()
     let imported = 0
     let skipped = []
@@ -225,22 +235,18 @@ export default function ActsImport() {
     try {
       for (const act of jsonData) {
         const res = await importAct(act, batchId)
-        if (res.skipped) {
-          skipped.push(act.id)
-        } else {
-          imported++
-        }
+
+        if (res.skipped) skipped.push(act.id)
+        else imported++
       }
 
-      // ---------------------------------------
-      // 🔥 NEW — запис у acts_imports
-      // ---------------------------------------
-      await supabase.from("acts_imports").insert({
+      // LOG IMPORT
+      await supabase.from('acts_imports').insert({
         batch_id: batchId,
         file_name: fileName,
         user_id: user.id,
         inserted_count: imported,
-        skipped_count: skipped.length,
+        skipped_count: skipped.length
       })
 
       setResult({
@@ -257,32 +263,26 @@ export default function ActsImport() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <button className="mb-4 underline" onClick={() => router.back()}>
+    <div className="page">
+
+      <button className="underline mb-3" onClick={() => router.back()}>
         ← Назад
       </button>
 
-      <h1 className="text-2xl font-bold mb-4">Імпорт актів (JSON)</h1>
+      <h1 className="title mb-4">Імпорт актів (JSON)</h1>
 
-      {error && <p className="mb-3 text-red-600">Помилка: {error}</p>}
+      {error && <p className="text-red-600 mb-4">Помилка: {error}</p>}
 
-      <div className="mb-4 space-y-2">
-        <label className="block mb-1 font-medium">Файл JSON</label>
+      <div className="mb-4">
+        <label className="label">Файл JSON</label>
         <input type="file" accept=".json" onChange={handleFileChange} />
 
-        {fileName && (
-          <p className="text-sm text-gray-600">Обраний файл: {fileName}</p>
-        )}
-
-        {jsonData && (
-          <p className="text-sm text-gray-700">
-            Виявлено записів актів: {jsonData.length}
-          </p>
-        )}
+        {fileName && <p className="text-sm mt-1">Обраний файл: {fileName}</p>}
+        {jsonData && <p className="text-sm">Актів у файлі: {jsonData.length}</p>}
       </div>
 
       <button
-        className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-60"
+        className="btn-primary"
         disabled={importing || !jsonData}
         onClick={handleImport}
       >
@@ -290,18 +290,16 @@ export default function ActsImport() {
       </button>
 
       {result && (
-        <div className="mt-6 border rounded p-4 bg-gray-50">
-          <h2 className="text-lg font-semibold mb-2">Результат</h2>
+        <div className="totals-box mt-4">
+          <h2 className="text-lg font-bold mb-2">Результат імпорту</h2>
+
           <p>Імпортовано актів: {result.imported}</p>
           <p>Пропущено актів: {result.skipped_count}</p>
 
           {result.skipped_count > 0 && (
-            <div className="mt-2">
-              <p className="font-medium text-sm">ID пропущених актів:</p>
-              <pre className="text-xs bg-white border rounded p-2 mt-1 max-h-40 overflow-auto">
-                {result.skipped.join('\n')}
-              </pre>
-            </div>
+            <pre className="mt-2 p-2 bg-gray-100 rounded" style={{ maxHeight: 200, overflow: 'auto' }}>
+              {result.skipped.join('\n')}
+            </pre>
           )}
         </div>
       )}
