@@ -206,12 +206,20 @@ export default function ActsList() {
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h1 className="title">Акти</h1>
 
+    <div>
+    <button
+          className="secondary"
+          onClick={() => router.push("/")}
+        >
+          На головну
+        </button>
         <button
           className="secondary"
           onClick={() => router.push("/admin/acts/import")}
         >
           Імпорт JSON
         </button>
+            </div>
       </div>
 
       {/* FILTERS */}
