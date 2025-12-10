@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from '../../../lib/supabaseClient';
+import { useRouter } from 'next/router'
 
 export default function DonationsImportsPage() {
+    const router = useRouter()
+    
     const [imports, setImports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(null);
