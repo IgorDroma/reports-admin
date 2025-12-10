@@ -8,11 +8,11 @@ export default function Home() {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data?.user ?? null);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
     return () => listener?.subscription?.unsubscribe?.();
   }, []);
 
@@ -26,51 +26,36 @@ export default function Home() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Reports Admin</h1>
+    <div className="page">
+
+      {/* HEADER */}
+      <div className="header">
+        <div className="title">MCORP Reports Admin</div>
 
         {user && (
-          <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-600">
-              Logged in as <span className="font-medium">{user.email}</span>
-            </span>
-            <button
-              onClick={signOut}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium"
-            >
-              Sign out
-            </button>
+          <div className="user-box">
+            <span className="user-email">{user.email}</span>
+            <button onClick={signOut} className="btn-light btn-sm">Вийти</button>
           </div>
         )}
       </div>
 
+      {/* LOGIN SCREEN */}
       {!user ? (
-        <div className="mt-10 bg-white shadow p-6 rounded-xl text-center">
-          <p className="text-gray-700 mb-4">To continue, sign in with Google:</p>
-          <button
-            onClick={signIn}
-            className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow"
-          >
-            Sign in with Google
+        <div className="card center">
+          <p className="text-lg mb-2">Увійдіть, щоб продовжити:</p>
+
+          <button onClick={signIn} className="btn-primary btn-lg">
+            Увійти через Google
           </button>
         </div>
       ) : (
-        <div className="mt-10 bg-white shadow p-6 rounded-xl">
-          <p className="text-gray-700 mb-3 font-medium">Go to:</p>
-          <div className="flex flex-col space-y-3">
-            <a
-              href="/admin/acts"
-              className="px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg font-medium text-blue-700 shadow-sm"
-            >
-              Переглянути акти
-            </a>
-            <a
-              href="/admin/donations"
-              className="px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg font-medium text-blue-700 shadow-sm"
-            >
-              Переглянути донати
-            </a>
+        <div className="card">
+          <p className="section-title">Розділи</p>
+
+          <div className="nav-grid">
+            <a href="/admin/acts" className="nav-card">📄 Переглянути акти</a>
+            <a href="/admin/donations" className="nav-card">💰 Переглянути донати</a>
           </div>
         </div>
       )}
