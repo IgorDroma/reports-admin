@@ -141,8 +141,11 @@ export default function DonationsList() {
     <div className="page">
       <div className="header">
         <h1 className="title">Список донатів</h1>
-        <button className="btn-light" onClick={() => router.push("/admin/donations/import")}>
+        <button className="btn-primary" onClick={() => router.push("/admin/donations/import")}>
           Імпорт
+        </button>
+            <button className="btn-primary" onClick={() => router.push("/admin/donations/imports")}>
+          Список імпортів
         </button>
       </div>
 
