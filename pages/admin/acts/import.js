@@ -98,7 +98,6 @@ export default function ActsImport() {
   }
 
   async function findOrCreateProduct(item) {
-    // item: { product_id, product_name, product_cat, ... }
     let { data, error } = await supabase
       .from('products')
       .select('id')
@@ -129,7 +128,7 @@ export default function ActsImport() {
     return created.id
   }
 
-  async function importAct(actJson) {
+  async function importAct(actJson, imported_batch_id) {
     const mapped = mapReceiver(actJson.receiver, actJson.receiver_group)
 
     if (!mapped.allowed) {
@@ -139,12 +138,10 @@ export default function ActsImport() {
     const receiverFinal = mapped.receiver
     const items = actJson.items || []
 
-    // суму беремо з total_sum або рахуємо з items
     const itemsSum = items.reduce((s, it) => s + Number(it.sum || 0), 0)
     const total_sum = actJson.total_sum != null ? actJson.total_sum : itemsSum
     const items_count = items.length
 
-    // чи існує акт з таким id
     let { data: actRows, error: actSelectError } = await supabase
       .from('acts')
       .select('id')
@@ -157,10 +154,11 @@ export default function ActsImport() {
 
     const actPayload = {
       id: actJson.id,
-      act_date: actJson.date, // рядок ISO, PG сам розпарсить
+      act_date: actJson.date,
       receiver: receiverFinal,
       total_sum,
-      items_count
+      items_count,
+      imported_batch_id // 🔥 NEW
     }
 
     if (!existingAct) {
@@ -170,7 +168,6 @@ export default function ActsImport() {
 
       if (insertError) throw insertError
     } else {
-      // оновлюємо акт
       const { error: updateError } = await supabase
         .from('acts')
         .update(actPayload)
@@ -178,7 +175,6 @@ export default function ActsImport() {
 
       if (updateError) throw updateError
 
-      // чистимо старі позиції
       const { error: delError } = await supabase
         .from('act_items')
         .delete()
@@ -187,7 +183,6 @@ export default function ActsImport() {
       if (delError) throw delError
     }
 
-    // тепер додаємо позиції
     for (const item of items) {
       const productId = await findOrCreateProduct(item)
 
@@ -220,12 +215,14 @@ export default function ActsImport() {
 
     setImporting(true)
 
+    // -----------------------------------
+    // 🔥 NEW — створюємо batchId
+    // -----------------------------------
     const batchId = crypto.randomUUID()
-    
-    try {
-      const skipped = []
-      let imported = 0
+    let imported = 0
+    let skipped = []
 
+    try {
       for (const act of jsonData) {
         const res = await importAct(act, batchId)
         if (res.skipped) {
@@ -235,6 +232,9 @@ export default function ActsImport() {
         }
       }
 
+      // ---------------------------------------
+      // 🔥 NEW — запис у acts_imports
+      // ---------------------------------------
       await supabase.from("acts_imports").insert({
         batch_id: batchId,
         file_name: fileName,
@@ -242,7 +242,7 @@ export default function ActsImport() {
         inserted_count: imported,
         skipped_count: skipped.length,
       })
-      
+
       setResult({
         imported,
         skipped,
@@ -267,16 +267,16 @@ export default function ActsImport() {
       {error && <p className="mb-3 text-red-600">Помилка: {error}</p>}
 
       <div className="mb-4 space-y-2">
-        <div>
-          <label className="block mb-1 font-medium">Файл JSON</label>
-          <input type="file" accept=".json,application/json" onChange={handleFileChange} />
-          {fileName && (
-            <p className="text-sm text-gray-600 mt-1">Обраний файл: {fileName}</p>
-          )}
-        </div>
+        <label className="block mb-1 font-medium">Файл JSON</label>
+        <input type="file" accept=".json" onChange={handleFileChange} />
+
+        {fileName && (
+          <p className="text-sm text-gray-600">Обраний файл: {fileName}</p>
+        )}
+
         {jsonData && (
           <p className="text-sm text-gray-700">
-            Виявлено записів актів у файлі: {jsonData.length}
+            Виявлено записів актів: {jsonData.length}
           </p>
         )}
       </div>
