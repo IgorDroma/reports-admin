@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
+import { useRouter } from "next/router";
 
 export default function ActsImports() {
+  const router = useRouter();
+  
   const [imports, setImports] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +41,11 @@ export default function ActsImports() {
   return (
     <div className="page">
       <div className="header">
+    <button
+          className="secondary"
+          onClick={() => router.push("/admin/acts")}
+        >До актів
+        </button>
         <div className="title">Імпорти актів</div>
       </div>
 
