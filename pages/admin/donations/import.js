@@ -365,6 +365,8 @@ export default function DonationsImport() {
 
     setImporting(true)
 
+    const batchId = crypto.randomUUID();
+
     try {
       const payload = rows.map(r => ({
         donated_at: r.donated_at,
@@ -372,6 +374,7 @@ export default function DonationsImport() {
         currency: r.currency,
         amount_currency: r.amount_currency,
         source_id: selectedSourceId,
+        imported_batch_id: batchId,
       }))
 
       const chunkSize = 500
@@ -379,6 +382,18 @@ export default function DonationsImport() {
         const chunk = payload.slice(i, i + chunkSize)
         const { error } = await supabase.from('donations').insert(chunk)
         if (error) throw error
+      }
+
+      // 🔥 Після імпорту створюємо запис у donations_imports
+      const { error: importError } = await supabase.from("donations_imports").insert({
+        batch_id: batchId,
+        file_name: fileName,
+        success_count: payload.length,
+        failed_count: skippedCount,
+      })
+
+      if (importError) {
+        console.error("Помилка запису імпорту:", importError)
       }
 
       setSuccess(
