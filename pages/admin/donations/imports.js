@@ -58,6 +58,9 @@ export default function DonationsImportsPage() {
 
     return (
         <div style={{ padding: "30px", maxWidth: "900px", margin: "0 auto" }}>
+    <button className="mb-4 underline" onClick={() => router.back()}>
+        ← Назад
+      </button>
             <h1>Імпорти донатів</h1>
 
             {loading && <p>Завантаження...</p>}
