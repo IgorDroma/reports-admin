@@ -11,6 +11,9 @@ function mapReceiver(rec, recGroup) {
     case 'Індивідуальні ВЧ':
       return { allowed: true, receiver: 'Військовослужбовець індивідуально' }
 
+    case 'Индивидуальные ВЧ':
+      return { allowed: true, receiver: 'Військовослужбовець індивідуально' }
+
     case 'Дети и мед. гражданские, старики':
       return { allowed: true, receiver: 'Допомога цивільним' }
 
