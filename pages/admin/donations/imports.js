@@ -78,6 +78,7 @@ export default function DonationsImportsPage() {
                             <th style={{ textAlign: "left", padding: "8px" }}>Файл</th>
                             <th style={{ padding: "8px" }}>Успішні</th>
                             <th style={{ padding: "8px" }}>Пропущені</th>
+                            <th style={{ padding: "8px" }}>Джерело</th>
                             <th style={{ padding: "8px" }}>Дія</th>
                         </tr>
                     </thead>
@@ -90,6 +91,7 @@ export default function DonationsImportsPage() {
                                 <td style={{ padding: "8px" }}>{imp.file_name || "-"}</td>
                                 <td style={{ padding: "8px", textAlign: "center" }}>{imp.success_count}</td>
                                 <td style={{ padding: "8px", textAlign: "center" }}>{imp.failed_count}</td>
+                                <td style={{ padding: "8px", textAlign: "center" }}>{imp.source_id}</td>
                                 <td style={{ padding: "8px" }}>
                                     <button
                                         onClick={() => deleteImport(imp.batch_id)}
