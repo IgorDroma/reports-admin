@@ -390,6 +390,7 @@ export default function DonationsImport() {
         file_name: fileName,
         success_count: payload.length,
         failed_count: skippedCount,
+        source_id: selectedSourceId,
       })
 
       if (importError) {
