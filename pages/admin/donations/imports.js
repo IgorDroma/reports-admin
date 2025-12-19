@@ -8,6 +8,7 @@ export default function DonationsImportsPage() {
     const [imports, setImports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(null);
+    const [sources, setSources] = useState([]);
 
     async function loadImports() {
         setLoading(true);
@@ -23,6 +24,15 @@ export default function DonationsImportsPage() {
         setLoading(false);
     }
 
+    async function loadSources() {
+        const { data } = await supabase
+            .from("donations_sources")
+            .select("*")
+            .order("name");
+    
+        setSources(data || []);
+    }
+    
     async function deleteImport(batchId) {
         if (!confirm("Видалити цей імпорт і всі пов'язані донати?")) return;
 
@@ -56,9 +66,14 @@ export default function DonationsImportsPage() {
     }
 
     useEffect(() => {
+        loadSources();
         loadImports();
     }, []);
 
+    const sourceMap = Object.fromEntries(
+        sources.map((s) => [String(s.id), s.name])
+    );
+    
     return (
         <div style={{ padding: "30px", maxWidth: "900px", margin: "0 auto" }}>
     <button className="mb-4 underline" onClick={() => router.back()}>
@@ -91,7 +106,7 @@ export default function DonationsImportsPage() {
                                 <td style={{ padding: "8px" }}>{imp.file_name || "-"}</td>
                                 <td style={{ padding: "8px", textAlign: "center" }}>{imp.success_count}</td>
                                 <td style={{ padding: "8px", textAlign: "center" }}>{imp.failed_count}</td>
-                                <td style={{ padding: "8px", textAlign: "center" }}>{imp.source_id}</td>
+                                <td style={{ padding: "8px", textAlign: "center" }}>{sourceMap[String(imp.source_id)] || "—"}</td>
                                 <td style={{ padding: "8px" }}>
                                     <button
                                         onClick={() => deleteImport(imp.batch_id)}
