@@ -60,7 +60,7 @@ export default function PropertyActsImports() {
       </div>
 
       {loading ? (
-        <p>Завантаження...</p>
+        <p>Завантаження ...</p>
       ) : imports.length === 0 ? (
         <p>Імпортів ще немає</p>
       ) : (
