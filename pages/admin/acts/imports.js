@@ -2,29 +2,37 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import { useRouter } from "next/router";
 
-export default function ActsImports() {
+export default function PropertyActsImports() {
   const router = useRouter();
-  
+
   const [imports, setImports] = useState([]);
   const [loading, setLoading] = useState(true);
 
   async function loadImports() {
     setLoading(true);
-    const { data } = await supabase
-      .from("acts_imports")
+
+    const { data, error } = await supabase
+      .from("property_import_batches")
       .select("*")
       .order("created_at", { ascending: false });
 
-    setImports(data || []);
+    if (error) {
+      console.error(error);
+      setImports([]);
+    } else {
+      setImports(data || []);
+    }
+
     setLoading(false);
   }
 
   async function rollbackImport(batchId) {
     if (!confirm("Видалити всі акти цього імпорту?")) return;
 
-    const { error } = await supabase.rpc("delete_act_import", {
-      target: batchId,
-    });
+    const { error } = await supabase
+      .from("property_import_batches")
+      .delete()
+      .eq("id", batchId);
 
     if (error) {
       alert("Помилка: " + error.message);
@@ -41,39 +49,45 @@ export default function ActsImports() {
   return (
     <div className="page">
       <div className="header">
-    <button
+        <button
           className="secondary"
-          onClick={() => router.push("/admin/acts")}
-        >До актів
+          onClick={() => router.push("/admin/property-acts")}
+        >
+          До актів
         </button>
-        <div className="title">Імпорти актів</div>
+
+        <div className="title">Імпорти майнових актів</div>
       </div>
 
       {loading ? (
         <p>Завантаження...</p>
+      ) : imports.length === 0 ? (
+        <p>Імпортів ще немає</p>
       ) : (
         <table className="table">
           <thead>
             <tr>
               <th>Дата</th>
               <th>Файл</th>
-              <th>Успішні</th>
-              <th>Пропущені</th>
+              <th>Актів</th>
+              <th>Сума</th>
               <th></th>
             </tr>
           </thead>
 
           <tbody>
             {imports.map((row) => (
-              <tr key={row.batch_id}>
+              <tr key={row.id}>
                 <td>{new Date(row.created_at).toLocaleString("uk-UA")}</td>
-                <td>{row.file_name}</td>
-                <td>{row.inserted_count}</td>
-                <td>{row.skipped_count}</td>
+                <td>{row.original_filename}</td>
+                <td>{row.total_acts}</td>
+                <td>
+                  {Number(row.total_amount).toLocaleString("uk-UA")} грн
+                </td>
                 <td className="text-right">
                   <button
                     className="danger"
-                    onClick={() => rollbackImport(row.batch_id)}
+                    onClick={() => rollbackImport(row.id)}
                   >
                     Відкотити
                   </button>
