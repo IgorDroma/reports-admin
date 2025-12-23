@@ -35,7 +35,9 @@ export default function Home() {
         {user && (
           <div className="user-box">
             <span className="user-email">{user.email}</span>
-            <button onClick={signOut} className="btn-light btn-sm">Вийти</button>
+            <button onClick={signOut} className="btn-light btn-sm">
+              Вийти
+            </button>
           </div>
         )}
       </div>
@@ -54,8 +56,17 @@ export default function Home() {
           <p className="section-title">Розділи</p>
 
           <div className="nav-grid">
-            <a href="/admin/acts" className="nav-card">📄 Переглянути акти</a>
-            <a href="/admin/donations" className="nav-card">💰 Переглянути донати</a>
+            <a href="/admin/acts" className="nav-card">
+              📄 Переглянути акти
+            </a>
+
+            <a href="/admin/donations" className="nav-card">
+              💰 Переглянути донати
+            </a>
+
+            <a href="/admin/property-acts" className="nav-card">
+              📦 Майнові надходження
+            </a>
           </div>
         </div>
       )}
