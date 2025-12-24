@@ -24,6 +24,10 @@ export default function DonationsImport() {
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const INCASSATION_PREFIXES = [
+  "благодiйнi внески прийнятi черeз касу пiдприємства через касу",
+  "внесення готівки (офіційний збір) благодійного фонду",
+];
 
   // ---------- AUTH ----------
   useEffect(() => {
@@ -176,6 +180,12 @@ export default function DonationsImport() {
     const s = String(purposeRaw).trim().toLowerCase()
     return s.startsWith('перерахува')
   }
+  
+  function isIncassation(purposeRaw) {
+    if (!purposeRaw) return false
+    const s = String(purposeRaw).trim().toLowerCase()
+    return INCASSATION_PREFIXES.some(prefix => s.startsWith(prefix))
+  }
 
   // ---------- PARSE XLSX ----------
   async function handleFileChange(e) {
@@ -322,13 +332,15 @@ export default function DonationsImport() {
           continue
         }
 
-
+        const is_incassation = isIncassation(purposeRaw)
+        
         parsed.push({
           donated_at,          // вже у вигляді 'YYYY-MM-DD HH:MM:SS'
           amount_uah: amountMain,
           currency: currencyMain,
           amount_currency: amountCurrency,
           purpose: purposeRaw ?? '',
+          is_incassation,
         })
       }
 
@@ -375,6 +387,7 @@ export default function DonationsImport() {
         amount_currency: r.amount_currency,
         source_id: selectedSourceId,
         imported_batch_id: batchId,
+        is_incassation: !!r.is_incassation,
       }))
 
       const chunkSize = 500
@@ -511,6 +524,7 @@ export default function DonationsImport() {
                   <th className="border px-2 py-1 text-left">Валюта</th>
                   <th className="border px-2 py-1 text-right">Сума у валюті</th>
                   <th className="border px-2 py-1 text-left">Призначення</th>
+            <th className="border px-2 py-1 text-left">Інкасація</th>
                 </tr>
               </thead>
               <tbody>
@@ -523,6 +537,25 @@ export default function DonationsImport() {
                       {r.amount_currency != null ? r.amount_currency : ''}
                     </td>
                     <td className="border px-2 py-1">{r.purpose}</td>
+                                       <td className="border px-2 py-1">
+  {r.is_incassation ? (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '2px 6px',
+        borderRadius: 6,
+        background: '#FEF3C7',
+        border: '1px solid #F59E0B',
+        fontSize: 12,
+      }}
+    >
+      Інкасація
+    </span>
+  ) : (
+    ''
+  )}
+</td>
+
                   </tr>
                 ))}
               </tbody>
