@@ -25,6 +25,7 @@ export default function DonationsList() {
   const [amountTo, setAmountTo] = useState("");
   const [currency, setCurrency] = useState("");
   const [sourceId, setSourceId] = useState("");
+  const [isIncassation, setIsIncassation] = useState("");
 
   // Totals
   const [totalAmountUAH, setTotalAmountUAH] = useState(0);
@@ -78,6 +79,9 @@ export default function DonationsList() {
 
     if (currency) query = query.eq("currency", currency);
     if (sourceId) query = query.eq("source_id", sourceId);
+    if (isIncassation !== "") {
+      query = query.eq("is_incassation", isIncassation === "true");
+    }
 
     const { data, count, error } = await query;
     if (!error) {
@@ -109,6 +113,13 @@ export default function DonationsList() {
 
     if (currency) totalQuery = totalQuery.eq("currency", currency);
     if (sourceId) totalQuery = totalQuery.eq("source_id", sourceId);
+    if (isIncassation !== "") {
+  totalQuery = totalQuery.eq(
+    "is_incassation",
+    isIncassation === "true"
+  );
+}
+
 
     const { data, count } = await totalQuery;
 
@@ -195,6 +206,19 @@ export default function DonationsList() {
             ))}
           </select>
         </div>
+        <div>
+            <label className="label">Інкасація</label>
+              <select
+                value={isIncassation}
+                onChange={(e) => setIsIncassation(e.target.value)}
+                className="input"
+              >
+                <option value="">Всі</option>
+                <option value="false">Без інкасації</option>
+                <option value="true">Тільки інкасація</option>
+              </select>
+            </div>
+
       </div>
 
       <div className="filters-buttons">
@@ -211,6 +235,7 @@ export default function DonationsList() {
             setAmountTo("");
             setCurrency("");
             setSourceId("");
+            setIsIncassation("");
             setPage(0);
             loadDonations();
           }}
@@ -233,6 +258,7 @@ export default function DonationsList() {
             <th className="text-right">Сума</th>
             <th>Валюта</th>
             <th>Джерело</th>
+            <th>Тип</th>
             <th className="text-right">Дії</th>
           </tr>
         </thead>
@@ -249,6 +275,26 @@ export default function DonationsList() {
 
               <td>{d.currency}</td>
               <td>{sourceMap[String(d.source_id)] || ""}</td>
+                <td>
+  {d.is_incassation ? (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "2px 6px",
+        borderRadius: 6,
+        background: "#FEF3C7",
+        border: "1px solid #F59E0B",
+        fontSize: 12,
+        fontWeight: 500,
+      }}
+    >
+      Інкасація
+    </span>
+  ) : (
+    <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
+  )}
+</td>
+
 
               <td className="text-right">
                 <button className="btn-delete" onClick={() => deleteDonation(d.id)}>
