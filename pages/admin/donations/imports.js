@@ -14,7 +14,7 @@ export default function DonationsImportsPage() {
         setLoading(true);
 
         const { data, error } = await supabase
-            .from("donations_imports")
+            .from("donations_imports_with_sum")
             .select("*")
             .order("created_at", { ascending: false });
 
@@ -94,6 +94,7 @@ export default function DonationsImportsPage() {
                             <th style={{ padding: "8px" }}>Успішні</th>
                             <th style={{ padding: "8px" }}>Пропущені</th>
                             <th style={{ padding: "8px" }}>Джерело</th>
+                <th style={{ padding: "8px"}}>Сума</th>
                             <th style={{ padding: "8px" }}>Дія</th>
                         </tr>
                     </thead>
@@ -107,6 +108,10 @@ export default function DonationsImportsPage() {
                                 <td style={{ padding: "8px", textAlign: "center" }}>{imp.success_count}</td>
                                 <td style={{ padding: "8px", textAlign: "center" }}>{imp.failed_count}</td>
                                 <td style={{ padding: "8px", textAlign: "center" }}>{sourceMap[String(imp.source_id)] || "—"}</td>
+                                    <td style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap" }}>
+  {Number(imp.total_amount_uah).toLocaleString("uk-UA")} ₴
+</td>
+
                                 <td style={{ padding: "8px" }}>
                                     <button
                                         onClick={() => deleteImport(imp.batch_id)}
