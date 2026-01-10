@@ -208,7 +208,6 @@ export default function ActsImport() {
           product_id: productId,
           qty,
           price,
-          act_date: actJson.date,
           sum
         })
 
