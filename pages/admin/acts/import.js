@@ -23,6 +23,12 @@ function mapReceiver(rec, recGroup) {
 }
 
 export default function ActsImport() {
+  const [progress, setProgress] = useState({
+  current: 0,
+  total: 0,
+  actId: null,
+})
+
   const router = useRouter()
   const [user, setUser] = useState(null)
 
@@ -237,12 +243,17 @@ export default function ActsImport() {
   async function handleImport() {
     setError('')
     setResult(null)
+    
 
     if (!jsonData?.length) {
       setError('Спочатку завантаж файл JSON')
       return
     }
-
+setProgress({
+      current: 0,
+      total: jsonData.length,
+      actId: null,
+    })
     setImporting(true)
 
     const batchId = crypto.randomUUID()
@@ -251,6 +262,14 @@ export default function ActsImport() {
 
     try {
       for (const act of jsonData) {
+
+
+        setProgress({
+    current: imported + 1,
+    total: jsonData.length,
+    actId: act.id,
+  })
+        
         const res = await importAct(act, batchId)
         if (res.skipped) skipped.push(act.id)
         else imported++
@@ -303,6 +322,33 @@ export default function ActsImport() {
       >
         {importing ? "Імпорт..." : "Імпортувати"}
       </button>
+       
+{importing && progress.total > 0 && (
+  <div className="mt-4 p-3 border rounded bg-gray-50">
+    <p className="text-sm">
+      Імпорт: <b>{progress.current}</b> із <b>{progress.total}</b>
+    </p>
+
+    {progress.actId && (
+      <p className="text-sm text-gray-600">
+        Поточний акт: <code>{progress.actId}</code>
+      </p>
+    )}
+
+    <div className="w-full bg-gray-200 h-2 rounded mt-2">
+      <div
+        className="bg-blue-600 h-2 rounded"
+        style={{
+          width: `${Math.round(
+            (progress.current / progress.total) * 100
+          )}%`,
+        }}
+      />
+    </div>
+  </div>
+)}
+
+       
 
       {result && (
         <div className="totals-box mt-4">
