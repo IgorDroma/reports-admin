@@ -76,6 +76,9 @@ export default function ImportMonoZip() {
     const JSZip = (await import("jszip")).default
     const Papa = (await import("papaparse")).default
 
+    console.log("JSZip loaded:", JSZip)
+    console.log("Papa loaded:", Papa)
+
     const collected = []
 
     for (const file of files) {
