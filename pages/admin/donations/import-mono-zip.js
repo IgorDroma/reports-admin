@@ -35,16 +35,22 @@ export default function ImportMonoZip() {
   /* ================= HELPERS ================= */
 
   function parseDateTime(dateStr, timeStr) {
-    if (!dateStr || !timeStr) return null;
+  if (!dateStr || !timeStr) return null;
 
-    // Очікуємо: DD.MM.YYYY + HH:MM:SS
-    const [dd, mm, yyyy] = String(dateStr).trim().split(".");
-    const time = String(timeStr).trim();
+  // Mono CSV: YYYY-MM-DD + HH:MM
+  const date = String(dateStr).trim();
+  const time = String(timeStr).trim();
 
-    if (!dd || !mm || !yyyy || !time) return null;
+  // Дозволяємо HH:MM → HH:MM:00
+  const timeFixed = /^\d{2}:\d{2}$/.test(time) ? `${time}:00` : time;
 
-    return `${yyyy}-${mm}-${dd} ${time}`;
-  }
+  // Валідація
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  if (!/^\d{2}:\d{2}:\d{2}$/.test(timeFixed)) return null;
+
+  return `${date} ${timeFixed}`;
+}
+
 
   function parseNumber(v) {
     if (v == null) return null;
