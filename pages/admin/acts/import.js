@@ -137,6 +137,20 @@ export default function ActsImport() {
     return created.id
   }
 
+  function buildActId(rawId, actDate) {
+  if (!rawId || !actDate) return rawId;
+
+  // беремо рік з дати акту
+  const year = new Date(actDate).getFullYear();
+
+  // якщо рік вже є — не дублюємо
+  if (String(rawId).startsWith(`${year}-`)) {
+    return rawId;
+  }
+
+  return `${year}-${rawId}`;
+}
+  
   // IMPORT ONE ACT
   async function importAct(actJson, batchId) {
     const mapped = mapReceiver(actJson.receiver, actJson.receiver_group)
@@ -152,10 +166,12 @@ export default function ActsImport() {
 
     const items_count = items.length
 
+    const actId = buildActId(actJson.id, actJson.date);
+    
     const { data: existingRow, error: selectErr } = await supabase
       .from("acts")
       .select("id")
-      .eq("id", actJson.id)
+      .eq("id", actId)
       .limit(1)
 
     if (selectErr) throw selectErr
@@ -163,7 +179,7 @@ export default function ActsImport() {
     const exists = existingRow?.[0]
 
     const actPayload = {
-      id: actJson.id,
+      id: actId,
       act_date: actJson.date,
       receiver: receiverFinal,
       total_sum,
@@ -181,14 +197,14 @@ export default function ActsImport() {
       const { error: updateErr } = await supabase
         .from("acts")
         .update(actPayload)
-        .eq("id", actJson.id)
+        .eq("id", actId)
 
       if (updateErr) throw updateErr
 
       const { error: deleteErr } = await supabase
         .from("act_items")
         .delete()
-        .eq("act_id", actJson.id)
+        .eq("act_id", actId)
 
       if (deleteErr) throw deleteErr
     }
@@ -204,7 +220,7 @@ export default function ActsImport() {
       const { error: insertItemErr } = await supabase
         .from("act_items")
         .insert({
-          act_id: actJson.id,
+          act_id: actId,
           product_id: productId,
           qty,
           price,
