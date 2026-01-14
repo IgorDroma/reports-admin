@@ -100,6 +100,8 @@ export default function ImportMonoZip() {
           })
         })
 
+        console.log("CSV headers:", Object.keys(parsed[0] || {}))
+        
         for (const r of parsed) {
           const dateRaw = r["Дата платежу"]
           const timeRaw = r["Час платежу"]
