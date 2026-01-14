@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/router"
 import { supabase } from "../../../lib/supabaseClient"
-import JSZip from "jszip"
-import Papa from "papaparse"
 
 /**
  * ЖОРСТКО зафіксований source_id для Mono
@@ -65,69 +63,72 @@ export default function ImportMonoZip() {
   /* ---------- ZIP → CSV ---------- */
 
   async function handleFileChange(e) {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
+  const files = Array.from(e.target.files || [])
+  if (!files.length) return
 
-    setParsing(true)
-    setError("")
-    setSuccess("")
-    setRows([])
-    setFileNames(files.map(f => f.name))
+  setParsing(true)
+  setError("")
+  setSuccess("")
+  setRows([])
+  setFileNames(files.map(f => f.name))
+
+  try {
+    const JSZip = (await import("jszip")).default
+    const Papa = (await import("papaparse")).default
 
     const collected = []
 
-    try {
-      for (const file of files) {
-        const zip = await JSZip.loadAsync(file)
+    for (const file of files) {
+      const zip = await JSZip.loadAsync(file)
 
-        const csvNames = Object.keys(zip.files).filter(name =>
-          name.toLowerCase().endsWith(".csv")
-        )
+      const csvNames = Object.keys(zip.files).filter(name =>
+        name.toLowerCase().endsWith(".csv")
+      )
 
-        if (!csvNames.length) continue
+      for (const csvName of csvNames) {
+        const csvText = await zip.files[csvName].async("string")
 
-        for (const csvName of csvNames) {
-          const csvText = await zip.files[csvName].async("string")
-
-          const parsed = await new Promise((resolve, reject) => {
-            Papa.parse(csvText, {
-              header: true,
-              skipEmptyLines: true,
-              complete: (res) => resolve(res.data),
-              error: reject,
-            })
+        const parsed = await new Promise((resolve, reject) => {
+          Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: res => resolve(res.data),
+            error: reject,
           })
+        })
 
-          for (const r of parsed) {
-            const donated_at = parseDateTime(
-              r["Дата платежу"],
-              r["Час платежу"]
-            )
-            if (!donated_at) continue
+        for (const r of parsed) {
+          const dateRaw = r["Дата платежу"]
+          const timeRaw = r["Час платежу"]
+          const sumRaw = r["Сума платежу"]
 
-            const amount_uah = parseNumber(r["Сума платежу"])
-            if (amount_uah == null) continue
+          const donated_at = parseDateTime(dateRaw, timeRaw)
+          if (!donated_at) continue
 
-            collected.push({
-              donated_at,
-              amount_uah,
-              currency: "UAH",
-              amount_currency: null,
-              purpose: "",
-              is_incassation: false,
-            })
-          }
+          const amount_uah = parseNumber(sumRaw)
+          if (amount_uah == null) continue
+
+          collected.push({
+            donated_at,
+            amount_uah,
+            currency: "UAH",
+            amount_currency: null,
+            purpose: "",
+            is_incassation: false,
+          })
         }
       }
-
-      setRows(collected)
-    } catch (err) {
-      console.error(err)
-      setError("Помилка обробки ZIP: " + err.message)
-    } finally {
-      setParsing(false)
     }
+
+    setRows(collected)
+  } catch (err) {
+    console.error(err)
+    setError("Помилка обробки ZIP: " + err.message)
+  } finally {
+    setParsing(false)
   }
+}
+
 
   /* ---------- IMPORT ---------- */
 
