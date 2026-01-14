@@ -28,6 +28,9 @@ export default function DonationsImport() {
   "благодiйнi внески прийнятi черeз касу пiдприємства через касу",
   "внесення готівки (офіційний збір) благодійного фонду",
 ];
+  const PURPOSE_PREFIXES = [
+  "перерахува",
+];
 
   // ---------- AUTH ----------
   useEffect(() => {
@@ -176,10 +179,24 @@ export default function DonationsImport() {
   }
 
   function shouldSkipByPurpose(purposeRaw) {
-    if (!purposeRaw) return false
-    const s = String(purposeRaw).trim().toLowerCase()
-    return s.startsWith('перерахува')
+  if (!purposeRaw) return false;
+
+  const s = String(purposeRaw).trim().toLowerCase();
+
+  if (PURPOSE_PREFIXES.some(prefix => s.startsWith(prefix))) {
+    return true;
   }
+  // починається з "благодійний платіж на "
+  // і містить "згiдно реєстру"
+  if (
+    s.startsWith("благодійний платіж на ") &&
+    s.includes("згiдно реєстру")
+  ) {
+    return true;
+  }
+
+  return false;
+}
   
   function isIncassation(purposeRaw) {
     if (!purposeRaw) return false
