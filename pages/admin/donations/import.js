@@ -30,6 +30,7 @@ export default function DonationsImport() {
 ];
   const PURPOSE_PREFIXES = [
   "перерахува",
+  "покриття за проведені трансакції згідно договору еквайринга Еквайринг",
 ];
 
   // ---------- AUTH ----------
