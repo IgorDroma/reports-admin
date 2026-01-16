@@ -98,55 +98,42 @@ export default function ActsImport() {
   /* ================= DB HELPERS ================= */
 
   async function findOrCreateCategory(name) {
-    if (!name?.trim()) return null;
+  if (!name?.trim()) return null;
 
-    const trimmed = name.trim();
+  const { data, error } = await supabase
+    .from("product_categories")
+    .upsert(
+      { name: name.trim() },
+      { onConflict: "name" }
+    )
+    .select("id")
+    .single();
 
-    const { data } = await supabase
-      .from("product_categories")
-      .select("id")
-      .eq("name", trimmed)
-      .limit(1);
+  if (error) throw error;
+  return data.id;
+}
 
-    if (data?.[0]) return data[0].id;
-
-    const { data: created, error } = await supabase
-      .from("product_categories")
-      .insert({ name: trimmed })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return created.id;
-  }
 
   async function findOrCreateProduct(item) {
-    const { data } = await supabase
-      .from("products")
-      .select("id")
-      .eq("id", item.product_id)
-      .limit(1);
-
-    if (data?.[0]) return data[0].id;
-
-    let categoryId = null;
-    if (item.product_cat?.trim()) {
-      categoryId = await findOrCreateCategory(item.product_cat);
-    }
-
-    const { data: created, error } = await supabase
-      .from("products")
-      .insert({
+  const { data, error } = await supabase
+    .from("products")
+    .upsert(
+      {
         id: item.product_id,
         name: item.product_name,
-        category_id: categoryId,
-      })
-      .select()
-      .single();
+        category_id: item.product_cat
+          ? await findOrCreateCategory(item.product_cat)
+          : null,
+      },
+      { onConflict: "id" }
+    )
+    .select("id")
+    .single();
 
-    if (error) throw error;
-    return created.id;
-  }
+  if (error) throw error;
+  return data.id;
+}
+
 
   /* ================= IMPORT ACT ================= */
 
