@@ -156,6 +156,9 @@ export default function DonationsList() {
     <button className="btn-primary" onClick={() => router.push("/admin/donations/import")}>
           Імпорт
         </button>
+            <button className="btn-primary" onClick={() => router.push("/admin/donations/import-mono-zip")}>
+          Імпорт Mono csv.zip
+        </button>
             <button className="btn-primary" onClick={() => router.push("/admin/donations/imports")}>
           Список імпортів
         </button>
