@@ -16,7 +16,7 @@ export default function AdminExpenses() {
 
   const [yearTotal, setYearTotal] = useState(0);
 
-  // auth
+  /* ---------------- AUTH ---------------- */
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data?.user) router.push("/login");
@@ -35,6 +35,7 @@ export default function AdminExpenses() {
     if (user) loadData();
   }, [user]);
 
+  /* ---------------- DATA ---------------- */
   async function loadData() {
     setLoading(true);
 
@@ -46,23 +47,24 @@ export default function AdminExpenses() {
     if (!error && data) {
       setItems(data);
 
-      // підсумок за поточний рік
       const currentYear = new Date().getFullYear();
-      const total = data
-        .filter(i => new Date(i.month).getFullYear() === currentYear)
-        .reduce((sum, i) => sum + Number(i.amount), 0);
-
-      setYearTotal(total);
+      setYearTotal(
+        data
+          .filter(i => new Date(i.month).getFullYear() === currentYear)
+          .reduce((s, i) => s + Number(i.amount), 0)
+      );
     }
 
     setLoading(false);
   }
 
+  /* ---------------- FORM ---------------- */
   function startEdit(row) {
     setEditingId(row.id);
     setMonth(row.month.slice(0, 7));
     setAmount(row.amount);
     setComment(row.comment || "");
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   }
 
   function resetForm() {
@@ -98,101 +100,106 @@ export default function AdminExpenses() {
 
   async function handleDelete(id) {
     if (!confirm("Видалити запис?")) return;
-
-    const { error } = await supabase
-      .from("admin_expenses")
-      .delete()
-      .eq("id", id);
-
-    if (!error) loadData();
+    await supabase.from("admin_expenses").delete().eq("id", id);
+    loadData();
   }
 
   if (!user) return null;
-  if (loading) return <p>Завантаження...</p>;
+  if (loading) return <p>Завантаження…</p>;
 
+  /* ---------------- UI ---------------- */
   return (
     <div className="admin-container">
       <h1 className="admin-title">Адміністративні витрати</h1>
+  <div><button className="btn-primary" onClick={() => router.push("/")}>
+          На головну
+        </button></div>
 
-      {/* FORM */}
-      <form className="admin-form" onSubmit={handleSubmit}>
-        <div className="form-row">
-          <label>Місяць</label>
-          <input
-            type="month"
-            value={month}
-            onChange={e => setMonth(e.target.value)}
-            required
-          />
+      {/* TABLE SECTION */}
+      <section className="admin-card">
+        <div className="admin-card-header">
+          <h2>Список витрат</h2>
+          <strong>
+            {new Date().getFullYear()}: {yearTotal.toLocaleString()} грн
+          </strong>
         </div>
 
-        <div className="form-row">
-          <label>Сума</label>
-          <input
-            type="number"
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="form-row">
-          <label>Коментар</label>
-          <textarea
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-          />
-        </div>
-
-        <div className="form-actions">
-          <button type="submit">
-            {editingId ? "Оновити" : "Додати"}
-          </button>
-
-          {editingId && (
-            <button type="button" onClick={resetForm}>
-              Скасувати
-            </button>
-          )}
-        </div>
-      </form>
-
-      {/* SUMMARY */}
-      <div className="admin-summary">
-        <strong>
-          Сума за {new Date().getFullYear()} рік: {yearTotal.toLocaleString()} грн
-        </strong>
-      </div>
-
-      {/* TABLE */}
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Місяць</th>
-            <th>Сума</th>
-            <th>Коментар</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map(row => (
-            <tr key={row.id}>
-              <td>
-                {new Date(row.month).toLocaleDateString("uk-UA", {
-                  month: "2-digit",
-                  year: "numeric"
-                })}
-              </td>
-              <td>{Number(row.amount).toLocaleString()} грн</td>
-              <td>{row.comment}</td>
-              <td>
-                <button onClick={() => startEdit(row)}>✏️</button>
-                <button onClick={() => handleDelete(row.id)}>🗑</button>
-              </td>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Місяць</th>
+              <th>Сума</th>
+              <th>Коментар</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map(row => (
+              <tr key={row.id}>
+                <td>
+                  {new Date(row.month).toLocaleDateString("uk-UA", {
+                    month: "2-digit",
+                    year: "numeric"
+                  })}
+                </td>
+                <td>{Number(row.amount).toLocaleString()} грн</td>
+                <td>{row.comment}</td>
+                <td className="actions">
+                  <button onClick={() => startEdit(row)}>✏️</button>
+                  <button onClick={() => handleDelete(row.id)}>🗑</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {/* FORM SECTION */}
+      <section className="admin-card">
+        <h2>{editingId ? "Редагування" : "Додати витрати"}</h2>
+
+        <form className="admin-form" onSubmit={handleSubmit}>
+          <div className="form-row">
+            <label>Місяць</label>
+            <input
+              type="month"
+              value={month}
+              onChange={e => setMonth(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-row">
+            <label>Сума</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-row">
+            <label>Коментар</label>
+            <textarea
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+            />
+          </div>
+
+          <div className="form-actions">
+            <button type="submit">
+              {editingId ? "Оновити" : "Додати"}
+            </button>
+
+            {editingId && (
+              <button type="button" onClick={resetForm}>
+                Скасувати
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
     </div>
   );
 }
