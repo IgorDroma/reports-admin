@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import { useRouter } from "next/router";
 
@@ -47,19 +47,19 @@ export default function AdminExpenses() {
     if (!error && data) {
       setItems(data);
 
-      // ---- групування та підсумки по роках ----
-const stats = {};
+      const stats = {};
+      data.forEach(item => {
+        const year = new Date(item.month).getFullYear();
+        if (!stats[year]) stats[year] = { total: 0, items: [] };
 
-data.forEach(item => {
-  const year = new Date(item.month).getFullYear();
-  if (!stats[year]) stats[year] = { total: 0, items: [] };
+        stats[year].total += Number(item.amount);
+        stats[year].items.push(item);
+      });
 
-  stats[year].total += Number(item.amount);
-  stats[year].items.push(item);
-});
+      setYearStats(stats);
+    }
 
-setYearStats(stats);
-
+    setLoading(false);
   }
 
   /* ---------------- FORM ---------------- */
@@ -88,7 +88,10 @@ setYearStats(stats);
     };
 
     const { error } = editingId
-      ? await supabase.from("admin_expenses").update(payload).eq("id", editingId)
+      ? await supabase
+          .from("admin_expenses")
+          .update(payload)
+          .eq("id", editingId)
       : await supabase
           .from("admin_expenses")
           .upsert(payload, { onConflict: "month" });
@@ -115,9 +118,12 @@ setYearStats(stats);
   return (
     <div className="admin-container">
       <h1 className="admin-title">Адміністративні витрати</h1>
-  <div><button className="btn-primary" onClick={() => router.push("/")}>
+
+      <div style={{ marginBottom: 16 }}>
+        <button className="btn-primary" onClick={() => router.push("/")}>
           На головну
-        </button></div>
+        </button>
+      </div>
 
       {/* TABLE SECTION */}
       <section className="admin-card">
@@ -135,39 +141,42 @@ setYearStats(stats);
             </tr>
           </thead>
           <tbody>
-  {Object.keys(yearStats)
-    .sort((a, b) => b - a)
-    .map(year => (
-      <>
-        {/* РІК */}
-        <tr className="year-row">
-          <td colSpan="4">
-            <strong>
-              {year} — {yearStats[year].total.toLocaleString()} грн
-            </strong>
-          </td>
-        </tr>
+            {Object.keys(yearStats)
+              .sort((a, b) => b - a)
+              .map(year => (
+                <React.Fragment key={year}>
+                  {/* YEAR */}
+                  <tr className="year-row">
+                    <td colSpan="4">
+                      <strong>
+                        {year} —{" "}
+                        {yearStats[year].total.toLocaleString()} грн
+                      </strong>
+                    </td>
+                  </tr>
 
-        {/* МІСЯЦІ */}
-        {yearStats[year].items.map(row => (
-          <tr key={row.id}>
-            <td>
-              {new Date(row.month).toLocaleDateString("uk-UA", {
-                month: "2-digit",
-                year: "numeric"
-              })}
-            </td>
-            <td>{Number(row.amount).toLocaleString()} грн</td>
-            <td>{row.comment}</td>
-            <td className="actions">
-              <button onClick={() => startEdit(row)}>✏️</button>
-              <button onClick={() => handleDelete(row.id)}>🗑</button>
-            </td>
-          </tr>
-        ))}
-      </>
-    ))}
-</tbody>
+                  {/* MONTHS */}
+                  {yearStats[year].items.map(row => (
+                    <tr key={row.id}>
+                      <td>
+                        {new Date(row.month).toLocaleDateString("uk-UA", {
+                          month: "2-digit",
+                          year: "numeric"
+                        })}
+                      </td>
+                      <td>
+                        {Number(row.amount).toLocaleString()} грн
+                      </td>
+                      <td>{row.comment}</td>
+                      <td className="actions">
+                        <button onClick={() => startEdit(row)}>✏️</button>
+                        <button onClick={() => handleDelete(row.id)}>🗑</button>
+                      </td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+          </tbody>
         </table>
       </section>
 
