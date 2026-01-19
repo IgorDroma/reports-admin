@@ -56,16 +56,21 @@ export default function Home() {
           <p className="section-title">Розділи</p>
 
           <div className="nav-grid">
-            <a href="/admin/acts" className="nav-card">
-              📄 Переглянути акти
-            </a>
-
+            
             <a href="/admin/donations" className="nav-card">
-              💰 Переглянути донати
+              💰 Донати
             </a>
 
             <a href="/admin/property-acts" className="nav-card">
               📦 Майнові надходження
+            </a>
+        
+        <a href="/admin/acts" className="nav-card">
+              📄 Акти видачі матеріальної допомоги
+            </a>
+        
+        <a href="/admin/expenses" className="nav-card">
+              💰 Адміністративні витрати
             </a>
           </div>
         </div>
