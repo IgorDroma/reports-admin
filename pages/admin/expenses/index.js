@@ -14,7 +14,7 @@ export default function AdminExpenses() {
   const [comment, setComment] = useState("");
   const [editingId, setEditingId] = useState(null);
 
-  const [yearTotal, setYearTotal] = useState(0);
+  const [yearStats, setYearStats] = useState({});
 
   /* ---------------- AUTH ---------------- */
   useEffect(() => {
@@ -47,15 +47,19 @@ export default function AdminExpenses() {
     if (!error && data) {
       setItems(data);
 
-      const currentYear = new Date().getFullYear();
-      setYearTotal(
-        data
-          .filter(i => new Date(i.month).getFullYear() === currentYear)
-          .reduce((s, i) => s + Number(i.amount), 0)
-      );
-    }
+      // ---- групування та підсумки по роках ----
+const stats = {};
 
-    setLoading(false);
+data.forEach(item => {
+  const year = new Date(item.month).getFullYear();
+  if (!stats[year]) stats[year] = { total: 0, items: [] };
+
+  stats[year].total += Number(item.amount);
+  stats[year].items.push(item);
+});
+
+setYearStats(stats);
+
   }
 
   /* ---------------- FORM ---------------- */
@@ -119,9 +123,6 @@ export default function AdminExpenses() {
       <section className="admin-card">
         <div className="admin-card-header">
           <h2>Список витрат</h2>
-          <strong>
-            {new Date().getFullYear()}: {yearTotal.toLocaleString()} грн
-          </strong>
         </div>
 
         <table className="admin-table">
@@ -134,23 +135,39 @@ export default function AdminExpenses() {
             </tr>
           </thead>
           <tbody>
-            {items.map(row => (
-              <tr key={row.id}>
-                <td>
-                  {new Date(row.month).toLocaleDateString("uk-UA", {
-                    month: "2-digit",
-                    year: "numeric"
-                  })}
-                </td>
-                <td>{Number(row.amount).toLocaleString()} грн</td>
-                <td>{row.comment}</td>
-                <td className="actions">
-                  <button onClick={() => startEdit(row)}>✏️</button>
-                  <button onClick={() => handleDelete(row.id)}>🗑</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+  {Object.keys(yearStats)
+    .sort((a, b) => b - a)
+    .map(year => (
+      <>
+        {/* РІК */}
+        <tr className="year-row">
+          <td colSpan="4">
+            <strong>
+              {year} — {yearStats[year].total.toLocaleString()} грн
+            </strong>
+          </td>
+        </tr>
+
+        {/* МІСЯЦІ */}
+        {yearStats[year].items.map(row => (
+          <tr key={row.id}>
+            <td>
+              {new Date(row.month).toLocaleDateString("uk-UA", {
+                month: "2-digit",
+                year: "numeric"
+              })}
+            </td>
+            <td>{Number(row.amount).toLocaleString()} грн</td>
+            <td>{row.comment}</td>
+            <td className="actions">
+              <button onClick={() => startEdit(row)}>✏️</button>
+              <button onClick={() => handleDelete(row.id)}>🗑</button>
+            </td>
+          </tr>
+        ))}
+      </>
+    ))}
+</tbody>
         </table>
       </section>
 
