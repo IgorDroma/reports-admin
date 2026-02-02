@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
+import { useRouter } from "next/router";
 
 export default function PaypalImports() {
+  const router = useRouter();
   const [items, setItems] = useState([]);
 
   useEffect(() => {
