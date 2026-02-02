@@ -10,96 +10,88 @@ export default function PaypalImport() {
   const [loading, setLoading] = useState(false);
 
   function handleFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
 
-  setFileName(file.name);
+    setFileName(file.name);
 
-  const reader = new FileReader();
-  reader.onload = evt => {
-    const wb = XLSX.read(evt.target.result, { type: "binary" });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const wb = XLSX.read(evt.target.result, { type: "binary" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
 
-    const rows = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      raw: false
-    });
+      const data = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        raw: false
+      });
 
-    // прибираємо пусті рядки
-    const clean = rows.filter(
-      r => r && r.length >= 4 && r[0]
-    );
+      // очікуємо: [Дата, Час, Сума, Валюта]
+      const clean = data.filter(
+        r => r && r.length >= 4 && r[0]
+      );
 
-    setRows(clean);
-  };
+      setRows(clean);
+    };
 
-  reader.readAsBinaryString(file);
-}
+    reader.readAsBinaryString(file);
+  }
 
-function parseDateTime(date, time) {
-  // очікуємо DD.MM.YYYY
-  const [d, m, y] = date.split(".");
-  return `${y}-${m}-${d} ${time || "00:00:00"}`;
-}
+  function parseDateTime(date, time) {
+    // DD.MM.YYYY + HH:mm:ss → YYYY-MM-DD HH:mm:ss
+    const [d, m, y] = String(date).split(".");
+    return `${y}-${m}-${d} ${time || "00:00:00"}`;
+  }
 
   async function handleImport() {
-  if (!rows.length) return;
+    if (!rows.length) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  // 1. створюємо batch
-  const { data: batch, error: batchError } = await supabase
-    .from("paypal_import_batches")
-    .insert({
-      filename: fileName,
-      rows_count: rows.length
-    })
-    .select()
-    .single();
+    // 1. створюємо batch
+    const { data: batch, error: batchError } = await supabase
+      .from("paypal_import_batches")
+      .insert({
+        filename: fileName,
+        rows_count: rows.length
+      })
+      .select()
+      .single();
 
-  if (batchError) {
-    alert("Помилка створення імпорту: " + batchError.message);
-    setLoading(false);
-    return;
-  }
+    if (batchError) {
+      alert("Помилка створення імпорту: " + batchError.message);
+      setLoading(false);
+      return;
+    }
 
-  // 2. формуємо payload
-  const payload = rows.map((r, i) => ({
-  paid_at: parseDateTime(r[0], r[1]), // Дата, Час
-  amount: Number(String(r[2]).replace(",", ".")),
-  currency: String(r[3]).trim(),
-  batch_id: batch.id
-}));
-
-
-    return {
-      paid_at: parseDateTime(r["Дата"], r["Час"]),
-      amount: Number(String(r["Сума"]).replace(",", ".")),
-      currency: String(r["Валюта"]).trim(),
+    // 2. формуємо payload
+    const payload = rows.map(r => ({
+      paid_at: parseDateTime(r[0], r[1]),
+      amount: Number(String(r[2]).replace(",", ".")),
+      currency: String(r[3]).trim(),
       batch_id: batch.id
-    };
-  }).filter(Boolean);
+    }));
 
-  // 3. вставка донатів
-  const { error: insertError } = await supabase
-    .from("paypal_donations")
-    .insert(payload);
+    // 3. вставка донатів
+    const { error: insertError } = await supabase
+      .from("paypal_donations")
+      .insert(payload);
 
-  if (insertError) {
-    console.error(insertError);
-    alert("Помилка імпорту донатів: " + insertError.message);
-    setLoading(false);
-    return;
+    if (insertError) {
+      console.error(insertError);
+      alert("Помилка імпорту донатів: " + insertError.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/admin/paypal/imports");
   }
-
-}
-
 
   return (
     <div className="admin-container">
-    <button className="mb-4 underline" onClick={() => router.back()}>
+      <button className="mb-4 underline" onClick={() => router.back()}>
         ← Назад
       </button>
+
       <h1>Імпорт PAYPAL</h1>
 
       <input type="file" accept=".xlsx" onChange={handleFile} />
@@ -108,7 +100,7 @@ function parseDateTime(date, time) {
         <>
           <p>Рядків: {rows.length}</p>
           <button onClick={handleImport} disabled={loading}>
-            Імпортувати
+            {loading ? "Імпорт…" : "Імпортувати"}
           </button>
         </>
       )}
