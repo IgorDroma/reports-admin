@@ -70,6 +70,17 @@ export default function AdminPaypal() {
   return (
     <div className="admin-container">
       <h1>PAYPAL надходження</h1>
+    <div>
+    <button className="btn-primary" onClick={() => router.push("/admin/paypal/import")}>
+          Імпорт
+        </button>
+            <button className="btn-primary" onClick={() => router.push("/admin/paypal/imports")}>
+          Список імпортів
+        </button>
+            <button className="btn-primary" onClick={() => router.push("/")}>
+          На головну
+        </button>
+            </div>
 
       <div className="filters">
         <select value={year} onChange={e => setYear(e.target.value)}>
