@@ -54,6 +54,9 @@ export default function PaypalImport() {
 
   return (
     <div className="admin-container">
+    <button className="mb-4 underline" onClick={() => router.back()}>
+        ← Назад
+      </button>
       <h1>Імпорт PAYPAL</h1>
 
       <input type="file" accept=".xlsx" onChange={handleFile} />
