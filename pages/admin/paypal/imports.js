@@ -30,7 +30,11 @@ export default function PaypalImports() {
 
   return (
     <div className="admin-container">
+    <button className="mb-4 underline" onClick={() => router.back()}>
+        ← Назад
+      </button>
       <h1>Імпорти PAYPAL</h1>
+    
 
       <table className="admin-table">
         <thead>
