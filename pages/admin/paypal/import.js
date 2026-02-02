@@ -82,8 +82,6 @@ export default function PaypalImport() {
       setLoading(false);
       return;
     }
-
-    router.push("/admin/paypal/imports");
   }
 
   return (
