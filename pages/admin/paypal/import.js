@@ -10,47 +10,90 @@ export default function PaypalImport() {
   const [loading, setLoading] = useState(false);
 
   function handleFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    setFileName(file.name);
+  setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const wb = XLSX.read(evt.target.result, { type: "binary" });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(sheet);
+  const reader = new FileReader();
+  reader.onload = evt => {
+    const wb = XLSX.read(evt.target.result, { type: "binary" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
 
-      setRows(data);
-    };
-    reader.readAsBinaryString(file);
-  }
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      raw: false
+    });
+
+    // прибираємо пусті рядки
+    const clean = rows.filter(
+      r => r && r.length >= 4 && r[0]
+    );
+
+    setRows(clean);
+  };
+
+  reader.readAsBinaryString(file);
+}
+
+function parseDateTime(date, time) {
+  // очікуємо DD.MM.YYYY
+  const [d, m, y] = date.split(".");
+  return `${y}-${m}-${d} ${time || "00:00:00"}`;
+}
 
   async function handleImport() {
-    if (!rows.length) return;
+  if (!rows.length) return;
 
-    setLoading(true);
+  setLoading(true);
 
-    const { data: batch } = await supabase
-      .from("paypal_import_batches")
-      .insert({
-        filename: fileName,
-        rows_count: rows.length
-      })
-      .select()
-      .single();
+  // 1. створюємо batch
+  const { data: batch, error: batchError } = await supabase
+    .from("paypal_import_batches")
+    .insert({
+      filename: fileName,
+      rows_count: rows.length
+    })
+    .select()
+    .single();
 
-    const payload = rows.map(r => ({
-      paid_at: `${r["Дата"]} ${r["Час"]}`,
-      amount: Number(r["Сума"]),
-      currency: r["Валюта"],
-      batch_id: batch.id
-    }));
-
-    await supabase.from("paypal_donations").insert(payload);
-
-    router.push("/admin/paypal/imports");
+  if (batchError) {
+    alert("Помилка створення імпорту: " + batchError.message);
+    setLoading(false);
+    return;
   }
+
+  // 2. формуємо payload
+  const payload = rows.map((r, i) => ({
+  paid_at: parseDateTime(r[0], r[1]), // Дата, Час
+  amount: Number(String(r[2]).replace(",", ".")),
+  currency: String(r[3]).trim(),
+  batch_id: batch.id
+}));
+
+
+    return {
+      paid_at: parseDateTime(r["Дата"], r["Час"]),
+      amount: Number(String(r["Сума"]).replace(",", ".")),
+      currency: String(r["Валюта"]).trim(),
+      batch_id: batch.id
+    };
+  }).filter(Boolean);
+
+  // 3. вставка донатів
+  const { error: insertError } = await supabase
+    .from("paypal_donations")
+    .insert(payload);
+
+  if (insertError) {
+    console.error(insertError);
+    alert("Помилка імпорту донатів: " + insertError.message);
+    setLoading(false);
+    return;
+  }
+
+}
+
 
   return (
     <div className="admin-container">
