@@ -37,40 +37,12 @@ export default function PaypalImport() {
   }
 
   function parseDateTime(dateCell, timeCell) {
-  let dateObj = null;
+  const dateObj = new Date(dateCell);
 
-  // Excel Date object
-  if (dateCell instanceof Date) {
-    dateObj = new Date(dateCell);
-  }
-
-  // Excel serial number
-  else if (typeof dateCell === "number") {
-    const d = XLSX.SSF.parse_date_code(dateCell);
-    dateObj = new Date(d.y, d.m - 1, d.d);
-  }
-
-  // String
-  else if (typeof dateCell === "string") {
-    // DD.MM.YYYY
-    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateCell)) {
-      const [d, m, y] = dateCell.split(".");
-      dateObj = new Date(Number(y), Number(m) - 1, Number(d));
-    }
-    // M/D/YY або M/D/YYYY
-    else if (dateCell.includes("/")) {
-      const parsed = Date.parse(dateCell);
-      if (!isNaN(parsed)) {
-        dateObj = new Date(parsed);
-      }
-    }
-  }
-
-  if (!dateObj || isNaN(dateObj.getTime())) {
+  if (isNaN(dateObj.getTime())) {
     throw new Error("Невалідна дата: " + dateCell);
   }
 
-  // ---- TIME ----
   let h = 0, m = 0, s = 0;
   if (typeof timeCell === "string") {
     const parts = timeCell.split(":");
@@ -81,8 +53,9 @@ export default function PaypalImport() {
 
   dateObj.setHours(h, m, s, 0);
 
-  return dateObj.toISOString(); // Postgres OK
+  return dateObj.toISOString();
 }
+
 
 
 
