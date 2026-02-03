@@ -40,61 +40,52 @@ export default function PaypalImport() {
   function parseDateTime(dateCell, timeCell) {
   let y, m, d;
 
-  // 1️⃣ Формат M/D/YY або M/D/YYYY
-  if (typeof dateCell === "string" && dateCell.includes("/")) {
-    const parts = dateCell.split("/");
-    if (parts.length !== 3) {
-      throw new Error("Невалідний формат дати: " + dateCell);
-    }
-
-    m = Number(parts[0]) - 1;
-    d = Number(parts[1]);
-    y = Number(parts[2]);
-
-    // YY → YYYY
-    if (y < 100) y += 2000;
-  }
-
-  // 2️⃣ Формат DD.MM.YYYY (на майбутнє)
-  else if (typeof dateCell === "string" && dateCell.includes(".")) {
-    const parts = dateCell.split(".");
-    d = Number(parts[0]);
-    m = Number(parts[1]) - 1;
-    y = Number(parts[2]);
-  }
-
-  // 3️⃣ Excel serial date
-  else if (typeof dateCell === "number") {
+  // ---------- DATE ----------
+  // Excel serial date
+  if (typeof dateCell === "number") {
     const ex = XLSX.SSF.parse_date_code(dateCell);
     y = ex.y;
     m = ex.m - 1;
     d = ex.d;
   }
-
-  else {
+  // M/D/YY or M/D/YYYY
+  else if (typeof dateCell === "string" && dateCell.includes("/")) {
+    const [mm, dd, yy] = dateCell.split("/");
+    m = Number(mm) - 1;
+    d = Number(dd);
+    y = Number(yy);
+    if (y < 100) y += 2000;
+  }
+  // DD.MM.YYYY
+  else if (typeof dateCell === "string" && dateCell.includes(".")) {
+    const [dd, mm, yy] = dateCell.split(".");
+    d = Number(dd);
+    m = Number(mm) - 1;
+    y = Number(yy);
+  } else {
     throw new Error("Невідома дата: " + dateCell);
   }
 
   const dateObj = new Date(y, m, d);
 
-  // ---- TIME ----
-  if (typeof timeCell === "string") {
-    const t = timeCell.split(":");
-    dateObj.setHours(
-      Number(t[0] || 0),
-      Number(t[1] || 0),
-      Number(t[2] || 0),
-      0
-    );
+  // ---------- TIME ----------
+  // Excel serial time (fraction of day)
+  if (typeof timeCell === "number") {
+    const totalSeconds = Math.round(timeCell * 24 * 60 * 60);
+    const h = Math.floor(totalSeconds / 3600);
+    const m2 = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    dateObj.setHours(h, m2, s, 0);
   }
+  // HH:MM:SS
+  else if (typeof timeCell === "string" && timeCell.includes(":")) {
+    const [h, m2, s] = timeCell.split(":").map(Number);
+    dateObj.setHours(h || 0, m2 || 0, s || 0, 0);
+  }
+  // інакше — 00:00:00
 
   return dateObj.toISOString();
 }
-
-
-
-
-
 
   async function handleImport() {
   if (!rows.length) return;
