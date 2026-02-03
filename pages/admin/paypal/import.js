@@ -8,6 +8,7 @@ export default function PaypalImport() {
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState(null);
 
   function handleFile(e) {
     const file = e.target.files[0];
@@ -60,54 +61,84 @@ export default function PaypalImport() {
 
 
   async function handleImport() {
-    if (!rows.length) return;
+  if (!rows.length) return;
 
-    setLoading(true);
+  setLoading(true);
+  setReport(null);
 
-    // 1. створюємо batch
-    const { data: batch, error: batchError } = await supabase
-      .from("paypal_import_batches")
-      .insert({
-        filename: fileName,
-        rows_count: rows.length
-      })
-      .select()
-      .single();
+  // 1. створюємо batch
+  const { data: batch, error: batchError } = await supabase
+    .from("paypal_import_batches")
+    .insert({
+      filename: fileName,
+      rows_count: rows.length
+    })
+    .select()
+    .single();
 
-    if (batchError) {
-      alert("Помилка створення імпорту: " + batchError.message);
-      setLoading(false);
-      return;
-    }
-
-    // 2. формуємо payload
-    const payload = rows.map(r => {
-  try {
-    return {
-      paid_at: parseDateTime(r[0], r[1]),
-      amount: Number(String(r[2]).replace(",", ".")),
-      currency: String(r[3]).trim(),
-      import_batch_id: batch.id
-    };
-  } catch (e) {
-    console.error("Пропущено рядок:", r, e.message);
-    return null;
+  if (batchError) {
+    alert("Помилка створення імпорту: " + batchError.message);
+    setLoading(false);
+    return;
   }
-}).filter(Boolean);
 
+  let valid = [];
+  let skipped = [];
 
-    // 3. вставка донатів
+  // 2. валідація рядків
+  rows.forEach((r, index) => {
+    try {
+      const paid_at = parseDateTime(r[0], r[1]);
+      const amount = Number(String(r[2]).replace(",", "."));
+      const currency = String(r[3] || "").trim();
+
+      if (!paid_at || isNaN(amount) || !currency) {
+        throw new Error("Порожні або некоректні дані");
+      }
+
+      valid.push({
+        paid_at,
+        amount,
+        currency,
+        import_batch_id: batch.id
+      });
+    } catch (e) {
+      skipped.push({
+        row: index + 1,
+        data: r,
+        reason: e.message
+      });
+    }
+  });
+
+  // 3. вставка валідних
+  let insertedCount = 0;
+
+  if (valid.length) {
     const { error: insertError } = await supabase
       .from("paypal_donations")
-      .insert(payload);
+      .insert(valid);
 
     if (insertError) {
-      console.error(insertError);
-      alert("Помилка імпорту донатів: " + insertError.message);
+      alert("Помилка вставки донатів: " + insertError.message);
       setLoading(false);
       return;
     }
+
+    insertedCount = valid.length;
   }
+
+  // 4. звіт
+  setReport({
+    total: rows.length,
+    inserted: insertedCount,
+    skipped: skipped.length,
+    skippedRows: skipped
+  });
+
+  setLoading(false);
+}
+
 
   return (
     <div className="admin-container">
@@ -125,6 +156,42 @@ export default function PaypalImport() {
           <button onClick={handleImport} disabled={loading}>
             {loading ? "Імпорт…" : "Імпортувати"}
           </button>
+            {report && (
+  <div className="import-report mt-6">
+    <h3>Результат імпорту</h3>
+
+    <ul>
+      <li>Всього рядків: <strong>{report.total}</strong></li>
+      <li>Додано: <strong>{report.inserted}</strong></li>
+      <li>Пропущено: <strong>{report.skipped}</strong></li>
+    </ul>
+
+    {report.skippedRows.length > 0 && (
+      <>
+        <h4 className="mt-4">Пропущені рядки</h4>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Дані</th>
+              <th>Причина</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.skippedRows.map((r, i) => (
+              <tr key={i}>
+                <td>{r.row}</td>
+                <td>{JSON.stringify(r.data)}</td>
+                <td>{r.reason}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    )}
+  </div>
+)}
+
         </>
       )}
     </div>
