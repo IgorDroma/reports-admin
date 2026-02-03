@@ -38,51 +38,59 @@ export default function PaypalImport() {
   }
 
   function parseDateTime(dateCell, timeCell) {
-  let dateObj;
+  let y, m, d;
 
-  // 1️⃣ Excel serial date (number)
-  if (typeof dateCell === "number") {
-    const d = XLSX.SSF.parse_date_code(dateCell);
-    if (!d) throw new Error("Невалідна Excel-дата: " + dateCell);
+  // 1️⃣ Формат M/D/YY або M/D/YYYY
+  if (typeof dateCell === "string" && dateCell.includes("/")) {
+    const parts = dateCell.split("/");
+    if (parts.length !== 3) {
+      throw new Error("Невалідний формат дати: " + dateCell);
+    }
 
-    dateObj = new Date(
-      d.y,
-      d.m - 1,
-      d.d
-    );
+    m = Number(parts[0]) - 1;
+    d = Number(parts[1]);
+    y = Number(parts[2]);
+
+    // YY → YYYY
+    if (y < 100) y += 2000;
   }
 
-  // 2️⃣ JS Date або ISO string
+  // 2️⃣ Формат DD.MM.YYYY (на майбутнє)
+  else if (typeof dateCell === "string" && dateCell.includes(".")) {
+    const parts = dateCell.split(".");
+    d = Number(parts[0]);
+    m = Number(parts[1]) - 1;
+    y = Number(parts[2]);
+  }
+
+  // 3️⃣ Excel serial date
+  else if (typeof dateCell === "number") {
+    const ex = XLSX.SSF.parse_date_code(dateCell);
+    y = ex.y;
+    m = ex.m - 1;
+    d = ex.d;
+  }
+
   else {
-    dateObj = new Date(dateCell);
+    throw new Error("Невідома дата: " + dateCell);
   }
 
-  if (isNaN(dateObj.getTime())) {
-    throw new Error("Невалідна дата: " + dateCell);
-  }
+  const dateObj = new Date(y, m, d);
 
-  // ---- ЧАС ----
-  // Excel time теж може бути number (частка доби)
-  if (typeof timeCell === "number") {
-    const seconds = Math.round(timeCell * 24 * 60 * 60);
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    dateObj.setHours(h, m, s, 0);
-  }
-  // або string "HH:mm:ss"
-  else if (typeof timeCell === "string") {
-    const parts = timeCell.split(":");
+  // ---- TIME ----
+  if (typeof timeCell === "string") {
+    const t = timeCell.split(":");
     dateObj.setHours(
-      Number(parts[0] || 0),
-      Number(parts[1] || 0),
-      Number(parts[2] || 0),
+      Number(t[0] || 0),
+      Number(t[1] || 0),
+      Number(t[2] || 0),
       0
     );
   }
 
   return dateObj.toISOString();
 }
+
 
 
 
@@ -138,10 +146,15 @@ export default function PaypalImport() {
       });
     }
   });
+console.log("ROW:", rows[0]);
+console.log("PARSED:", parseDateTime(rows[0][0], rows[0][1]));
 
   // 3. вставка валідних
   let insertedCount = 0;
-
+    
+console.log(rows[0]);
+console.log(payload[0]);
+    
   if (valid.length) {
     const { error: insertError } = await supabase
       .from("paypal_donations")
