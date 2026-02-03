@@ -68,7 +68,7 @@ export default function PaypalImport() {
       paid_at: parseDateTime(r[0], r[1]),
       amount: Number(String(r[2]).replace(",", ".")),
       currency: String(r[3]).trim(),
-      batch_id: batch.id
+      imported_batch_id: batch.id
     }));
 
     // 3. вставка донатів
