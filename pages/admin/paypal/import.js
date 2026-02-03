@@ -152,9 +152,6 @@ console.log("PARSED:", parseDateTime(rows[0][0], rows[0][1]));
   // 3. вставка валідних
   let insertedCount = 0;
     
-console.log(rows[0]);
-console.log(payload[0]);
-    
   if (valid.length) {
     const { error: insertError } = await supabase
       .from("paypal_donations")
