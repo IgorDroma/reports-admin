@@ -37,29 +37,28 @@ export default function PaypalImport() {
   }
 
   function parseDateTime(dateCell, timeCell) {
-  let dateObj;
+  let dateObj = null;
 
-  // 1. Якщо Excel вже дав Date
+  // Excel Date object
   if (dateCell instanceof Date) {
-    dateObj = dateCell;
+    dateObj = new Date(dateCell);
   }
-  // 2. Якщо Excel дав число (Excel serial date)
+
+  // Excel serial number
   else if (typeof dateCell === "number") {
-    dateObj = XLSX.SSF.parse_date_code(dateCell);
-    dateObj = new Date(
-      dateObj.y,
-      dateObj.m - 1,
-      dateObj.d
-    );
+    const d = XLSX.SSF.parse_date_code(dateCell);
+    dateObj = new Date(d.y, d.m - 1, d.d);
   }
-  // 3. Якщо рядок (07.04.2025 або 1/1/25)
+
+  // String
   else if (typeof dateCell === "string") {
-    // пробуємо DD.MM.YYYY
-    if (dateCell.includes(".")) {
+    // DD.MM.YYYY
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateCell)) {
       const [d, m, y] = dateCell.split(".");
       dateObj = new Date(Number(y), Number(m) - 1, Number(d));
-    } else {
-      // fallback: Date.parse (1/1/25, etc)
+    }
+    // M/D/YY або M/D/YYYY
+    else if (dateCell.includes("/")) {
       const parsed = Date.parse(dateCell);
       if (!isNaN(parsed)) {
         dateObj = new Date(parsed);
@@ -71,7 +70,7 @@ export default function PaypalImport() {
     throw new Error("Невалідна дата: " + dateCell);
   }
 
-  // час
+  // ---- TIME ----
   let h = 0, m = 0, s = 0;
   if (typeof timeCell === "string") {
     const parts = timeCell.split(":");
@@ -82,9 +81,9 @@ export default function PaypalImport() {
 
   dateObj.setHours(h, m, s, 0);
 
-  // ISO без Z (Postgres з TZ прийме)
-  return dateObj.toISOString();
+  return dateObj.toISOString(); // Postgres OK
 }
+
 
 
   async function handleImport() {
@@ -109,15 +108,20 @@ export default function PaypalImport() {
     }
 
     // 2. формуємо payload
-    const payload = rows.map(r => ({
+    const payload = rows.map(r => {
+  try {
+    return {
       paid_at: parseDateTime(r[0], r[1]),
       amount: Number(String(r[2]).replace(",", ".")),
       currency: String(r[3]).trim(),
       import_batch_id: batch.id
-    } catch (e) {
+    };
+  } catch (e) {
     console.error("Пропущено рядок:", r, e.message);
     return null;
-  }));
+  }
+}).filter(Boolean);
+
 
     // 3. вставка донатів
     const { error: insertError } = await supabase
