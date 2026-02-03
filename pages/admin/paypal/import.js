@@ -38,24 +38,52 @@ export default function PaypalImport() {
   }
 
   function parseDateTime(dateCell, timeCell) {
-  const dateObj = new Date(dateCell);
+  let dateObj;
+
+  // 1️⃣ Excel serial date (number)
+  if (typeof dateCell === "number") {
+    const d = XLSX.SSF.parse_date_code(dateCell);
+    if (!d) throw new Error("Невалідна Excel-дата: " + dateCell);
+
+    dateObj = new Date(
+      d.y,
+      d.m - 1,
+      d.d
+    );
+  }
+
+  // 2️⃣ JS Date або ISO string
+  else {
+    dateObj = new Date(dateCell);
+  }
 
   if (isNaN(dateObj.getTime())) {
     throw new Error("Невалідна дата: " + dateCell);
   }
 
-  let h = 0, m = 0, s = 0;
-  if (typeof timeCell === "string") {
-    const parts = timeCell.split(":");
-    h = Number(parts[0] || 0);
-    m = Number(parts[1] || 0);
-    s = Number(parts[2] || 0);
+  // ---- ЧАС ----
+  // Excel time теж може бути number (частка доби)
+  if (typeof timeCell === "number") {
+    const seconds = Math.round(timeCell * 24 * 60 * 60);
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    dateObj.setHours(h, m, s, 0);
   }
-
-  dateObj.setHours(h, m, s, 0);
+  // або string "HH:mm:ss"
+  else if (typeof timeCell === "string") {
+    const parts = timeCell.split(":");
+    dateObj.setHours(
+      Number(parts[0] || 0),
+      Number(parts[1] || 0),
+      Number(parts[2] || 0),
+      0
+    );
+  }
 
   return dateObj.toISOString();
 }
+
 
 
 
