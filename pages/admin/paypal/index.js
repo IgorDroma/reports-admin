@@ -27,7 +27,7 @@ export default function AdminPaypal() {
     if (user) loadData();
   }, [user, year, month, currency]);
 
-  /* ---------- DATA ---------- */
+  /* ---------- DATA - --------- */
   async function loadData() {
     setLoading(true);
 
