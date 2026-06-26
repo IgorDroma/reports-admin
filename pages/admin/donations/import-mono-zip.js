@@ -12,6 +12,8 @@ export default function ImportMonoZip() {
 
   const [filesInfo, setFilesInfo] = useState([]);
   const [rows, setRows] = useState([]);
+  const [totalAmount, setTotalAmount] = useState(0);
+
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
@@ -25,9 +27,11 @@ export default function ImportMonoZip() {
       setLoadingUser(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_e, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
 
     return () => listener?.subscription?.unsubscribe?.();
   }, []);
@@ -35,26 +39,28 @@ export default function ImportMonoZip() {
   /* ================= HELPERS ================= */
 
   function parseDateTime(dateStr, timeStr) {
-  if (!dateStr || !timeStr) return null;
+    if (!dateStr || !timeStr) return null;
 
-  // Mono CSV: YYYY-MM-DD + HH:MM
-  const date = String(dateStr).trim();
-  const time = String(timeStr).trim();
+    const date = String(dateStr).trim();
+    const time = String(timeStr).trim();
 
-  // Дозволяємо HH:MM → HH:MM:00
-  const timeFixed = /^\d{2}:\d{2}$/.test(time) ? `${time}:00` : time;
+    const timeFixed = /^\d{2}:\d{2}$/.test(time) ? `${time}:00` : time;
 
-  // Валідація
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  if (!/^\d{2}:\d{2}:\d{2}$/.test(timeFixed)) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    if (!/^\d{2}:\d{2}:\d{2}$/.test(timeFixed)) return null;
 
-  return `${date} ${timeFixed}`;
-}
-
+    return `${date} ${timeFixed}`;
+  }
 
   function parseNumber(v) {
     if (v == null) return null;
-    const n = parseFloat(String(v).replace(",", ".").replace(/\s+/g, ""));
+
+    const n = parseFloat(
+      String(v)
+        .replace(",", ".")
+        .replace(/\s+/g, "")
+    );
+
     return Number.isNaN(n) ? null : n;
   }
 
@@ -62,12 +68,14 @@ export default function ImportMonoZip() {
 
   async function handleFileChange(e) {
     const files = Array.from(e.target.files || []);
+
     if (!files.length) return;
 
     setError("");
     setSuccess("");
     setRows([]);
-    setFilesInfo(files.map(f => f.name));
+    setTotalAmount(0);
+    setFilesInfo(files.map((f) => f.name));
     setParsing(true);
 
     try {
@@ -79,7 +87,7 @@ export default function ImportMonoZip() {
       for (const zipFile of files) {
         const zip = await JSZip.loadAsync(zipFile);
 
-        const csvFiles = Object.values(zip.files).filter(f =>
+        const csvFiles = Object.values(zip.files).filter((f) =>
           f.name.toLowerCase().endsWith(".csv")
         );
 
@@ -114,7 +122,13 @@ export default function ImportMonoZip() {
         }
       }
 
+      const total = allRows.reduce(
+        (sum, row) => sum + (row.amount_uah || 0),
+        0
+      );
+
       setRows(allRows);
+      setTotalAmount(total);
     } catch (err) {
       console.error(err);
       setError("Помилка обробки ZIP/CSV: " + err.message);
@@ -135,15 +149,20 @@ export default function ImportMonoZip() {
     const batchId = crypto.randomUUID();
 
     try {
-      const payload = rows.map(r => ({
+      const payload = rows.map((r) => ({
         ...r,
         imported_batch_id: batchId,
       }));
 
       const chunkSize = 500;
+
       for (let i = 0; i < payload.length; i += chunkSize) {
         const chunk = payload.slice(i, i + chunkSize);
-        const { error } = await supabase.from("donations").insert(chunk);
+
+        const { error } = await supabase
+          .from("donations")
+          .insert(chunk);
+
         if (error) throw error;
       }
 
@@ -156,8 +175,10 @@ export default function ImportMonoZip() {
       });
 
       setSuccess(`Успішно імпортовано ${payload.length} записів`);
+
       setRows([]);
       setFilesInfo([]);
+      setTotalAmount(0);
     } catch (err) {
       console.error(err);
       setError("Помилка імпорту: " + err.message);
@@ -208,12 +229,24 @@ export default function ImportMonoZip() {
 
       {rows.length > 0 && (
         <>
-          <p className="mt-3">
-            Підготовлено записів: <b>{rows.length}</b>
-          </p>
+          <div className="mt-4 p-4 border rounded bg-gray-50 space-y-2">
+            <p>
+              <strong>Підготовлено записів:</strong>{" "}
+              {rows.length.toLocaleString("uk-UA")}
+            </p>
+
+            <p className="text-lg">
+              <strong>Загальна сума:</strong>{" "}
+              {totalAmount.toLocaleString("uk-UA", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              грн
+            </p>
+          </div>
 
           <button
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
             disabled={importing}
             onClick={handleImport}
           >
