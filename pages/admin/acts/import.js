@@ -68,7 +68,7 @@ async function loadProductsCache() {
   if (error) throw error;
 
   for (const row of data) {
-    productCache.set(row.id, true);
+    productCache.set(row.id, row.id);
   }
 }
 
@@ -91,9 +91,30 @@ async function preloadMissingProducts(jsonData) {
   const rows = [];
 
   for (const item of missing.values()) {
-    const categoryId = item.product_cat
-      ? await findOrCreateCategory(item.product_cat)
-      : null;
+    let categoryId = null;
+
+if (item.product_cat) {
+
+    categoryId = categoryCache.get(item.product_cat);
+
+    if (!categoryId) {
+
+        const { data, error } = await supabase
+            .from("product_categories")
+            .upsert(
+                { name: item.product_cat },
+                { onConflict: "name" }
+            )
+            .select("id")
+            .single();
+
+        if (error) throw error;
+
+        categoryId = data.id;
+
+        categoryCache.set(item.product_cat, categoryId);
+    }
+}
 
     rows.push({
       id: item.product_id,
@@ -179,28 +200,7 @@ export default function ActsImport() {
 
   /* ================= DB HELPERS ================= */
 
-  async function findOrCreateCategory(name) {
-  if (!name?.trim()) return null;
-
-  if (categoryCache.has(name)) {
-    return categoryCache.get(name);
-  }
-
-  const { data, error } = await supabase
-    .from("product_categories")
-    .upsert(
-      { name: name.trim() },
-      { onConflict: "name" }
-    )
-    .select("id")
-    .single();
-
-  if (error) throw error;
-
-  categoryCache.set(name, data.id);
-
-  return data.id;
-}
+  
 
 
   /* ================= IMPORT ACT ================= */
