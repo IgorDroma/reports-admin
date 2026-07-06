@@ -71,6 +71,49 @@ async function loadProductsCache() {
     productCache.set(row.id, true);
   }
 }
+
+async function preloadMissingProducts(jsonData) {
+  const missing = new Map();
+
+  for (const act of jsonData) {
+    const items = act.items || [];
+
+    for (const item of items) {
+      if (productCache.has(item.product_id)) continue;
+      if (missing.has(item.product_id)) continue;
+
+      missing.set(item.product_id, item);
+    }
+  }
+
+  if (!missing.size) return;
+
+  const rows = [];
+
+  for (const item of missing.values()) {
+    const categoryId = item.product_cat
+      ? await findOrCreateCategory(item.product_cat)
+      : null;
+
+    rows.push({
+      id: item.product_id,
+      name: item.product_name,
+      category_id: categoryId,
+    });
+  }
+
+  const { error } = await supabase
+    .from("products")
+    .upsert(rows, {
+      onConflict: "id",
+    });
+
+  if (error) throw error;
+
+  for (const row of rows) {
+    productCache.set(row.id, row.id);
+  }
+}
 /* ================= COMPONENT ================= */
 
 export default function ActsImport() {
@@ -159,14 +202,6 @@ export default function ActsImport() {
 
   return data.id;
 }
-
-
-  async function findOrCreateProduct(item) {
-
-  if (productCache.has(item.product_id)) {
-      return item.product_id;
-  }
-
   const categoryId =
       item.product_cat
           ? await findOrCreateCategory(item.product_cat)
@@ -235,14 +270,13 @@ await supabase
     const itemsPayload = [];
 
     for (const item of items) {
-      const productId = await findOrCreateProduct(item);
       const qty = +item.qty || 0;
       const sum = +item.sum || 0;
       const price = qty ? sum / qty : 0;
 
       itemsPayload.push({
         act_id: actId,
-        product_id: productId,
+        product_id: item.product_id,
         qty,
         price,
         sum,
@@ -278,7 +312,8 @@ await supabase
     });
 
     await loadCategoriesCache();
-await loadProductsCache();
+    await loadProductsCache();
+    await preloadMissingProducts(jsonData);
     
     const batchId = crypto.randomUUID();
     let imported = 0;
