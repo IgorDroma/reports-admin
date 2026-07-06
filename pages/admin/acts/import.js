@@ -7,6 +7,7 @@ import { supabase } from "../../../lib/supabaseClient";
 function mapReceiver(rec, recGroup) {
   switch (recGroup) {
     case "Отримувачі благодійної допомоги юр. лица":
+      case "Юридична особа":
       return { allowed: true, receiver: rec };
 
     case "Індивідуальні ВЧ":
