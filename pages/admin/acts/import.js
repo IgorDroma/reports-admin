@@ -180,7 +180,6 @@ export default function ActsImport() {
   /* ================= DB HELPERS ================= */
 
   async function findOrCreateCategory(name) {
-
   if (!name?.trim()) return null;
 
   if (categoryCache.has(name)) {
@@ -188,43 +187,19 @@ export default function ActsImport() {
   }
 
   const { data, error } = await supabase
-      .from("product_categories")
-      .upsert(
-          { name: name.trim() },
-          { onConflict: "name" }
-      )
-      .select("id")
-      .single();
+    .from("product_categories")
+    .upsert(
+      { name: name.trim() },
+      { onConflict: "name" }
+    )
+    .select("id")
+    .single();
 
   if (error) throw error;
 
   categoryCache.set(name, data.id);
 
   return data.id;
-}
-  const categoryId =
-      item.product_cat
-          ? await findOrCreateCategory(item.product_cat)
-          : null;
-
-  const { error } = await supabase
-      .from("products")
-      .upsert(
-          {
-              id: item.product_id,
-              name: item.product_name,
-              category_id: categoryId,
-          },
-          {
-              onConflict: "id"
-          }
-      );
-
-  if (error) throw error;
-
-  productCache.set(item.product_id, true);
-
-  return item.product_id;
 }
 
 
