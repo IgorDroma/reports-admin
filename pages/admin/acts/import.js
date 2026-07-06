@@ -209,7 +209,23 @@ export default function ActsImport() {
     actJson = normalizeAct(actJson);
     
     const mapped = mapReceiver(actJson.receiver, actJson.receiver_group);
-    if (!mapped.allowed) return { skipped: true };
+    if (!mapped.allowed) {
+  console.warn(
+    "Пропущено акт:",
+    actJson.id,
+    "receiver_group:",
+    actJson.receiver_group,
+    "receiver:",
+    actJson.receiver
+  );
+
+  return {
+    skipped: true,
+    reason: "receiver_group",
+    receiver_group: actJson.receiver_group,
+    actId: actJson.id,
+  };
+}
 
     const actId = buildActId(actJson.id, actJson.date);
     const items = actJson.items || [];
@@ -307,10 +323,19 @@ await supabase
         });
 
         const res = await importAct(act, batchId);
-        if (res.skipped) skipped.push(act.id);
-        else imported++;
+        if (res.skipped) {
+  skipped.push({
+    id: act.id,
+    reason: res.reason,
+    receiver_group: res.receiver_group,
+  });
+} else {
+  imported++;
+}
       }
-
+if (skipped.length) {
+  console.table(skipped);
+}
       await supabase.from("acts_imports").insert({
         batch_id: batchId,
         file_name: fileName,
