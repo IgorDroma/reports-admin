@@ -4,10 +4,6 @@ import { supabase } from "../../../lib/supabaseClient";
 
 /* ================= HELPERS ================= */
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 function mapReceiver(rec, recGroup) {
   switch (recGroup) {
     case "Отримувачі благодійної допомоги юр. лица":
@@ -32,6 +28,49 @@ function buildActId(rawId, actDate) {
   return `${year}-${rawId}`;
 }
 
+function normalizeAct(act) {
+  const firstItem = act.items?.[0] || {};
+
+  return {
+    ...act,
+    receiver: act.receiver ?? firstItem.receiver ?? null,
+    receiver_group: act.receiver_group ?? firstItem.receiver_group ?? null,
+    receiver_type: act.receiver_type ?? firstItem.receiver_type ?? null,
+  };
+}
+
+const categoryCache = new Map();
+const productCache = new Map();
+
+async function loadCategoriesCache() {
+
+  categoryCache.clear();
+
+  const { data, error } = await supabase
+    .from("product_categories")
+    .select("id,name");
+
+  if (error) throw error;
+
+  for (const row of data) {
+    categoryCache.set(row.name, row.id);
+  }
+}
+
+async function loadProductsCache() {
+
+  productCache.clear();
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("id");
+
+  if (error) throw error;
+
+  for (const row of data) {
+    productCache.set(row.id, true);
+  }
+}
 /* ================= COMPONENT ================= */
 
 export default function ActsImport() {
@@ -98,46 +137,67 @@ export default function ActsImport() {
   /* ================= DB HELPERS ================= */
 
   async function findOrCreateCategory(name) {
+
   if (!name?.trim()) return null;
 
+  if (categoryCache.has(name)) {
+    return categoryCache.get(name);
+  }
+
   const { data, error } = await supabase
-    .from("product_categories")
-    .upsert(
-      { name: name.trim() },
-      { onConflict: "name" }
-    )
-    .select("id")
-    .single();
+      .from("product_categories")
+      .upsert(
+          { name: name.trim() },
+          { onConflict: "name" }
+      )
+      .select("id")
+      .single();
 
   if (error) throw error;
+
+  categoryCache.set(name, data.id);
+
   return data.id;
 }
 
 
   async function findOrCreateProduct(item) {
-  const { data, error } = await supabase
-    .from("products")
-    .upsert(
-      {
-        id: item.product_id,
-        name: item.product_name,
-        category_id: item.product_cat
+
+  if (productCache.has(item.product_id)) {
+      return item.product_id;
+  }
+
+  const categoryId =
+      item.product_cat
           ? await findOrCreateCategory(item.product_cat)
-          : null,
-      },
-      { onConflict: "id" }
-    )
-    .select("id")
-    .single();
+          : null;
+
+  const { error } = await supabase
+      .from("products")
+      .upsert(
+          {
+              id: item.product_id,
+              name: item.product_name,
+              category_id: categoryId,
+          },
+          {
+              onConflict: "id"
+          }
+      );
 
   if (error) throw error;
-  return data.id;
+
+  productCache.set(item.product_id, true);
+
+  return item.product_id;
 }
 
 
   /* ================= IMPORT ACT ================= */
 
   async function importAct(actJson, batchId) {
+    actJson = normalizeAct(actJson);
+    
     const mapped = mapReceiver(actJson.receiver, actJson.receiver_group);
     if (!mapped.allowed) return { skipped: true };
 
@@ -157,24 +217,18 @@ export default function ActsImport() {
       imported_batch_id: batchId,
     };
 
-    const { data: existing } = await supabase
-      .from("acts")
-      .select("id")
-      .eq("id", actId)
-      .limit(1);
+    const { error } = await supabase
+  .from("acts")
+  .upsert(actPayload, {
+    onConflict: "id",
+  });
 
-    if (!existing?.length) {
-      const { error } = await supabase.from("acts").insert(actPayload);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from("acts")
-        .update(actPayload)
-        .eq("id", actId);
-      if (error) throw error;
+if (error) throw error;
 
-      await supabase.from("act_items").delete().eq("act_id", actId);
-    }
+await supabase
+  .from("act_items")
+  .delete()
+  .eq("act_id", actId);
 
     /* ===== batch insert items ===== */
 
@@ -182,8 +236,8 @@ export default function ActsImport() {
 
     for (const item of items) {
       const productId = await findOrCreateProduct(item);
-      const qty = Number(item.qty || 0);
-      const sum = Number(item.sum || 0);
+      const qty = +item.qty || 0;
+      const sum = +item.sum || 0;
       const price = qty ? sum / qty : 0;
 
       itemsPayload.push({
@@ -195,7 +249,7 @@ export default function ActsImport() {
       });
     }
 
-    const CHUNK = 100;
+    const CHUNK = 1000;
     for (let i = 0; i < itemsPayload.length; i += CHUNK) {
       const chunk = itemsPayload.slice(i, i + CHUNK);
       const { error } = await supabase.from("act_items").insert(chunk);
@@ -223,6 +277,9 @@ export default function ActsImport() {
       actId: null,
     });
 
+    await loadCategoriesCache();
+await loadProductsCache();
+    
     const batchId = crypto.randomUUID();
     let imported = 0;
     const skipped = [];
@@ -242,10 +299,6 @@ export default function ActsImport() {
         const res = await importAct(act, batchId);
         if (res.skipped) skipped.push(act.id);
         else imported++;
-
-        if (index % 5 === 0) {
-          await sleep(100);
-        }
       }
 
       await supabase.from("acts_imports").insert({
