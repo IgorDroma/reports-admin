@@ -56,7 +56,10 @@ export default function Home() {
           <p className="section-title">Розділи</p>
 
           <div className="nav-grid">
-            
+            <a href="/admin/reports" className="nav-card">
+              📅 Публікація звітів
+            </a>  
+        
             <a href="/admin/donations" className="nav-card">
               💰 Донати
             </a>
