@@ -75,7 +75,9 @@ export default function Home() {
         <a href="/admin/expenses" className="nav-card">
               💰 Адміністративні витрати
             </a>
-
+        <a href="/admin/gallery" className="nav-card">
+              📅 Картинки
+            </a> 
         <a href="/admin/paypal" className="nav-card">
               💰 PayPal
             </a>
