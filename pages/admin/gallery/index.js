@@ -62,7 +62,7 @@ export default function AdminGallery() {
     setSortOrder(row.sort_order || 0);
 
     window.scrollTo({
-      top: document.body.scrollHeight,
+      top: 0,
       behavior: "smooth"
     });
   }
@@ -129,65 +129,7 @@ export default function AdminGallery() {
         </button>
       </div>
 
-      <section className="admin-card">
-
-        <div className="admin-card-header">
-          <h2>Зображення</h2>
-        </div>
-
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Місяць</th>
-              <th>Sort</th>
-              <th>Caption</th>
-              <th>URL</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {items.map(row => (
-              <tr key={row.id}>
-                <td>
-                  {new Date(row.month).toLocaleDateString("uk-UA", {
-                    month: "2-digit",
-                    year: "numeric"
-                  })}
-                </td>
-
-                <td>{row.sort_order}</td>
-
-                <td>{row.caption}</td>
-
-                <td style={{maxWidth:350}}>
-                  <a
-                    href={row.image_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {row.image_url}
-                  </a>
-                </td>
-
-                <td className="actions">
-                  <button onClick={() => startEdit(row)}>
-                    ✏️
-                  </button>
-
-                  <button onClick={() => handleDelete(row.id)}>
-                    🗑
-                  </button>
-                </td>
-
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-      </section>
-
-      <section className="admin-card">
+<section className="admin-card">
 
         <h2>
           {editingId
@@ -257,6 +199,66 @@ export default function AdminGallery() {
         </form>
 
       </section>
+            
+      <section className="admin-card">
+
+        <div className="admin-card-header">
+          <h2>Зображення</h2>
+        </div>
+
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Місяць</th>
+              <th>Sort</th>
+              <th>Caption</th>
+              <th>URL</th>
+              <th></th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {items.map(row => (
+              <tr key={row.id}>
+                <td>
+                  {new Date(row.month).toLocaleDateString("uk-UA", {
+                    month: "2-digit",
+                    year: "numeric"
+                  })}
+                </td>
+
+                <td>{row.sort_order}</td>
+
+                <td>{row.caption}</td>
+
+                <td style={{maxWidth:350}}>
+                  <a
+                    href={row.image_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {row.image_url}
+                  </a>
+                </td>
+
+                <td className="actions">
+                  <button onClick={() => startEdit(row)}>
+                    ✏️
+                  </button>
+
+                  <button onClick={() => handleDelete(row.id)}>
+                    🗑
+                  </button>
+                </td>
+
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+      </section>
+
+      
 
     </div>
   );
