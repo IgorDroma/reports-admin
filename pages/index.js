@@ -55,6 +55,62 @@ export default function Home() {
         <div className="card">
           <p className="section-title">Розділи</p>
 
+        <div className="section-description">
+  <h3>Місячний звіт</h3>
+
+  <p>
+    <strong>Надходження коштів</strong>
+  </p>
+  <ul>
+    <li>По банках — дані від бухгалтерії.</li>
+    <li>Monobank — файли з папки на Google Диску, обробляються скриптом.</li>
+    <li>
+      <strong>Надходження у гривні:</strong> Дата/Час, Валюта, Сума, Призначення.
+      <br />
+      Дата та час можуть зберігатися в одній колонці.
+    </li>
+    <li>
+      <strong>Надходження в валюті:</strong> Дата/Час, Валюта, Сума,
+      Валюта, Сума, Призначення.
+      <br />
+      Перша валюта та сума — в UAH, друга валюта та сума — в оригінальній валюті.
+    </li>
+    <li>
+      <strong>Примітка:</strong> рахунок 2998 — адміністративний рахунок.
+    </li>
+  </ul>
+
+  <p>
+    <strong>Майнові надходження</strong>
+  </p>
+  <ul>
+    <li>Вигрузка з BAS.</li>
+  </ul>
+
+  <p>
+    <strong>Передача благодійної допомоги</strong>
+  </p>
+  <ul>
+    <li>Вигрузка з BAS.</li>
+    <li>Акти видачі.</li>
+    <li>Видача основних засобів.</li>
+  </ul>
+
+  <p>
+    <strong>Адміністративні витрати</strong>
+  </p>
+  <ul>
+    <li>Дані від бухгалтерії.</li>
+  </ul>
+
+  <p>
+    <strong>PayPal</strong>
+  </p>
+  <ul>
+    <li>Таблиця з двома колонками.</li>
+  </ul>
+</div>
+        
           <div className="nav-grid">
             <a href="/admin/reports" className="nav-card">
               📅 Публікація звітів
