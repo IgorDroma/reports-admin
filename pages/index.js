@@ -95,6 +95,10 @@ export default function Home() {
 
           {/* DESCRIPTION */}
           <div className="section-description">
+            <p>
+              vercel.com - server</br>
+            supabase.com - bd
+            </p>
             
             <p>
               <strong>Надходження коштів</strong>
@@ -208,7 +212,7 @@ export default function Home() {
               UPDATE mo_postmeta
             SET meta_value = 'wp-custom-template-2'
               WHERE post_id = 942
-                AND meta_key = '_wppage_template';
+                AND meta_key = '_wp_page_template';
             </p>
             </div>
         </div>
