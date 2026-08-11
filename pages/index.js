@@ -1,6 +1,42 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
+const styles = `
+  .section-description {
+    margin: -5px 0 25px;
+    padding: 16px 20px;
+    background: #f8f9fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    color: #4b5563;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .section-description h3 {
+    margin: 0 0 15px;
+    color: #111827;
+    font-size: 18px;
+  }
+
+  .section-description p {
+    margin: 14px 0 5px;
+  }
+
+  .section-description ul {
+    margin: 5px 0 10px;
+    padding-left: 22px;
+  }
+
+  .section-description li {
+    margin-bottom: 6px;
+  }
+
+  .section-description strong {
+    color: #111827;
+  }
+`;
+
 export default function Home() {
   const [user, setUser] = useState(null);
 
@@ -8,16 +44,20 @@ export default function Home() {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data?.user ?? null);
     });
- 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
 
     return () => listener?.subscription?.unsubscribe?.();
   }, []);
 
   const signIn = async () => {
-    await supabase.auth.signInWithOAuth({ provider: "google" });
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+    });
   };
 
   const signOut = async () => {
@@ -27,6 +67,7 @@ export default function Home() {
 
   return (
     <div className="page">
+      <style>{styles}</style>
 
       {/* HEADER */}
       <div className="header">
@@ -35,6 +76,7 @@ export default function Home() {
         {user && (
           <div className="user-box">
             <span className="user-email">{user.email}</span>
+
             <button onClick={signOut} className="btn-light btn-sm">
               Вийти
             </button>
@@ -45,7 +87,9 @@ export default function Home() {
       {/* LOGIN SCREEN */}
       {!user ? (
         <div className="card center">
-          <p className="text-lg mb-2">Увійдіть, щоб продовжити:</p>
+          <p className="text-lg mb-2">
+            Увійдіть, щоб продовжити:
+          </p>
 
           <button onClick={signIn} className="btn-primary btn-lg">
             Увійти через Google
@@ -55,67 +99,100 @@ export default function Home() {
         <div className="card">
           <p className="section-title">Розділи</p>
 
-        <div className="section-description">
-  <h3>Місячний звіт</h3>
+          {/* DESCRIPTION */}
+          <div className="section-description">
+            <h3>Місячний звіт</h3>
 
-  <p>
-    <strong>Надходження коштів</strong>
-  </p>
-  <ul>
-    <li>По банках — дані від бухгалтерії.</li>
-    <li>Monobank — файли з папки на Google Диску, обробляються скриптом.</li>
-    <li>
-      <strong>Надходження у гривні:</strong> Дата/Час, Валюта, Сума, Призначення.
-      <br />
-      Дата та час можуть зберігатися в одній колонці.
-    </li>
-    <li>
-      <strong>Надходження в валюті:</strong> Дата/Час, Валюта, Сума,
-      Валюта, Сума, Призначення.
-      <br />
-      Перша валюта та сума — в UAH, друга валюта та сума — в оригінальній валюті.
-    </li>
-    <li>
-      <strong>Примітка:</strong> рахунок 2998 — адміністративний рахунок.
-    </li>
-  </ul>
+            <p>
+              <strong>Надходження коштів</strong>
+            </p>
 
-  <p>
-    <strong>Майнові надходження</strong>
-  </p>
-  <ul>
-    <li>Вигрузка з BAS.</li>
-  </ul>
+            <ul>
+              <li>
+                По банках — дані від бухгалтерії.
+              </li>
 
-  <p>
-    <strong>Передача благодійної допомоги</strong>
-  </p>
-  <ul>
-    <li>Вигрузка з BAS.</li>
-    <li>Акти видачі.</li>
-    <li>Видача основних засобів.</li>
-  </ul>
+              <li>
+                Monobank — файли з папки на Google Диску,
+                обробляються скриптом.
+              </li>
 
-  <p>
-    <strong>Адміністративні витрати</strong>
-  </p>
-  <ul>
-    <li>Дані від бухгалтерії.</li>
-  </ul>
+              <li>
+                <strong>Надходження у гривні:</strong>{" "}
+                Дата/Час, Валюта, Сума, Призначення.
+                <br />
+                Дата та час можуть зберігатися в одній колонці.
+              </li>
 
-  <p>
-    <strong>PayPal</strong>
-  </p>
-  <ul>
-    <li>Таблиця з двома колонками.</li>
-  </ul>
-</div>
-        
+              <li>
+                <strong>Надходження в валюті:</strong>{" "}
+                Дата/Час, Валюта, Сума, Валюта, Сума, Призначення.
+                <br />
+                Перша валюта та сума — в UAH, друга валюта
+                та сума — в оригінальній валюті.
+              </li>
+
+              <li>
+                <strong>Примітка:</strong> рахунок 2998 —
+                адміністративний рахунок.
+              </li>
+            </ul>
+
+            <p>
+              <strong>Майнові надходження</strong>
+            </p>
+
+            <ul>
+              <li>
+                Вигрузка з BAS.
+              </li>
+            </ul>
+
+            <p>
+              <strong>Передача благодійної допомоги</strong>
+            </p>
+
+            <ul>
+              <li>
+                Вигрузка з BAS.
+              </li>
+
+              <li>
+                Акти видачі.
+              </li>
+
+              <li>
+                Видача основних засобів.
+              </li>
+            </ul>
+
+            <p>
+              <strong>Адміністративні витрати</strong>
+            </p>
+
+            <ul>
+              <li>
+                Дані від бухгалтерії.
+              </li>
+            </ul>
+
+            <p>
+              <strong>PayPal</strong>
+            </p>
+
+            <ul>
+              <li>
+                Таблиця з двома колонками.
+              </li>
+            </ul>
+          </div>
+
+          {/* NAVIGATION */}
           <div className="nav-grid">
             <a href="/admin/reports" className="nav-card">
               📅 Публікація звітів
-            </a>  
-        
+            </a>
+
             <a href="/admin/donations" className="nav-card">
               💰 Надходження коштів
             </a>
@@ -123,18 +200,20 @@ export default function Home() {
             <a href="/admin/property-acts" className="nav-card">
               📦 Майнові надходження
             </a>
-        
-        <a href="/admin/acts" className="nav-card">
+
+            <a href="/admin/acts" className="nav-card">
               📄 Акти видачі
             </a>
-        
-        <a href="/admin/expenses" className="nav-card">
+
+            <a href="/admin/expenses" className="nav-card">
               💰 Адміністративні витрати
             </a>
-        <a href="/admin/gallery" className="nav-card">
+
+            <a href="/admin/gallery" className="nav-card">
               📅 Щомісячні галереї
-            </a> 
-        <a href="/admin/paypal" className="nav-card">
+            </a>
+
+            <a href="/admin/paypal" className="nav-card">
               💰 PayPal
             </a>
           </div>
