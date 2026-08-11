@@ -61,7 +61,7 @@ export default function Home() {
             </a>  
         
             <a href="/admin/donations" className="nav-card">
-              💰 Донати
+              💰 Надходження коштів
             </a>
 
             <a href="/admin/property-acts" className="nav-card">
@@ -76,7 +76,7 @@ export default function Home() {
               💰 Адміністративні витрати
             </a>
         <a href="/admin/gallery" className="nav-card">
-              📅 Картинки
+              📅 Щомісячні галереї
             </a> 
         <a href="/admin/paypal" className="nav-card">
               💰 PayPal
