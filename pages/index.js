@@ -13,12 +13,6 @@ const styles = `
     line-height: 1.5;
   }
 
-  .section-description h3 {
-    margin: 0 0 15px;
-    color: #111827;
-    font-size: 18px;
-  }
-
   .section-description p {
     margin: 14px 0 5px;
   }
@@ -101,8 +95,7 @@ export default function Home() {
 
           {/* DESCRIPTION */}
           <div className="section-description">
-            <h3>Місячний звіт</h3>
-
+            
             <p>
               <strong>Надходження коштів</strong>
             </p>
@@ -132,10 +125,6 @@ export default function Home() {
                 та сума — в оригінальній валюті.
               </li>
 
-              <li>
-                <strong>Примітка:</strong> рахунок 2998 —
-                адміністративний рахунок.
-              </li>
             </ul>
 
             <p>
@@ -154,15 +143,7 @@ export default function Home() {
 
             <ul>
               <li>
-                Вигрузка з BAS.
-              </li>
-
-              <li>
-                Акти видачі.
-              </li>
-
-              <li>
-                Видача основних засобів.
+                Вигрузка з BAS (Акти видачі, Видача основних засобів).
               </li>
             </ul>
 
