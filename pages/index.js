@@ -3,8 +3,8 @@ import { supabase } from "../lib/supabaseClient";
 
 const styles = `
   .section-description {
-    margin: 5px 0 25px;
-    padding: 16px 20px;
+    margin: 10px 0 10px;
+    padding: 10px 20px;
     background: #f8f9fa;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -14,7 +14,7 @@ const styles = `
   }
 
   .section-description p {
-    margin: 14px 0 5px;
+    margin: 10px 0 5px;
   }
 
   .section-description ul {
