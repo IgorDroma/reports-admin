@@ -198,6 +198,19 @@ export default function Home() {
               💰 PayPal
             </a>
           </div>
+
+            <div className="section-description">
+
+            <p>
+            Оновлення шаблону через phpmyadmin якщо злетіло меню в англійській мові
+            </p>
+            <p>
+              UPDATE mo_postmeta
+            SET meta_value = 'wp-custom-template-2'
+              WHERE post_id = 942
+                AND meta_key = '_wppage_template';
+            </p>
+            </div>
         </div>
       )}
     </div>
