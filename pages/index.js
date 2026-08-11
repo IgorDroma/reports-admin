@@ -96,7 +96,7 @@ export default function Home() {
           {/* DESCRIPTION */}
           <div className="section-description">
             <p>
-              vercel.com - server<br>
+              vercel.com - server<br />
             supabase.com - bd
             </p>
             
