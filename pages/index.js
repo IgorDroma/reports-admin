@@ -69,7 +69,7 @@ export default function Home() {
             </a>
         
         <a href="/admin/acts" className="nav-card">
-              📄 Акти видачі матеріальної допомоги
+              📄 Акти видачі
             </a>
         
         <a href="/admin/expenses" className="nav-card">
