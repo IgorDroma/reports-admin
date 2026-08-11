@@ -505,6 +505,9 @@ export default function DonationsImport() {
           <p className="text-xs" style={{ color: '#6b7280', marginTop: 4 }}>
             Список джерел редагується у Supabase в таблиці <code>donations_sources</code>.
           </p>
+                            <p>
+                <strong>Примітка:</strong> рахунок 2998 — адміністративний рахунок.
+              </p>
         </div>
       </div>
 
