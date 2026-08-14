@@ -29,6 +29,11 @@ const styles = `
   .section-description strong {
     color: #111827;
   }
+
+  .nav-card {
+    color: #2563eb !important;
+    text-decoration: none;
+  }
 `;
 
 export default function Home() {
@@ -97,7 +102,7 @@ export default function Home() {
           <div className="section-description">
             <p>
               vercel.com - server<br />
-            supabase.com - bd
+              supabase.com - bd
             </p>
             
             <p>
@@ -203,18 +208,17 @@ export default function Home() {
             </a>
           </div>
 
-            <div className="section-description">
-
+          <div className="section-description">
             <p>
-            Оновлення шаблону через phpmyadmin якщо злетіло меню в англійській мові
+              Оновлення шаблону через phpmyadmin якщо злетіло меню в англійській мові
             </p>
             <p>
               UPDATE mo_postmeta
-            SET meta_value = 'wp-custom-template-2'
+              SET meta_value = 'wp-custom-template-2'
               WHERE post_id = 942
                 AND meta_key = '_wp_page_template';
             </p>
-            </div>
+          </div>
         </div>
       )}
     </div>
