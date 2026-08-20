@@ -30,13 +30,23 @@ const styles = `
     color: #111827;
   }
 
+  /* На головній залишаємо заголовки нейтральними, без зайвого синього */
+  .title,
+  .section-title {
+    color: #111827 !important;
+  }
+
   .nav-card {
-    color: #2563eb !important;
+    color: #374151 !important;
     text-decoration: none;
   }
 
+  .nav-card:hover {
+    color: #2563eb !important;
+  }
+
   .info-details {
-    margin-top: 10px;
+    margin: 10px 0 18px;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
     background: #f8f9fa;
@@ -45,17 +55,22 @@ const styles = `
   .info-details summary {
     cursor: pointer;
     padding: 12px 20px;
-    color: #2563eb;
-    font-weight: bold;
+    color: #374151;
+    font-weight: 600;
     user-select: none;
   }
 
   .info-details summary:hover {
     background: #f0f4ff;
+    color: #2563eb;
   }
 
   .info-details-content {
     padding: 0 20px 15px;
+  }
+
+  .nav-grid {
+    margin-bottom: 18px;
   }
 `;
 
