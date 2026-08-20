@@ -34,6 +34,29 @@ const styles = `
     color: #2563eb !important;
     text-decoration: none;
   }
+
+  .info-details {
+    margin-top: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f8f9fa;
+  }
+
+  .info-details summary {
+    cursor: pointer;
+    padding: 12px 20px;
+    color: #2563eb;
+    font-weight: bold;
+    user-select: none;
+  }
+
+  .info-details summary:hover {
+    background: #f0f4ff;
+  }
+
+  .info-details-content {
+    padding: 0 20px 15px;
+  }
 `;
 
 export default function Home() {
@@ -98,90 +121,98 @@ export default function Home() {
         <div className="card">
           <p className="section-title">Розділи</p>
 
-          {/* DESCRIPTION */}
-          <div className="section-description">
-            <p>
-              vercel.com - server<br />
-              supabase.com - bd
-            </p>
-            
-            <p>
-              <strong>Надходження коштів</strong>
-            </p>
+          {/* REFERENCE INFORMATION */}
+          <details className="info-details">
+            <summary>📋 Довідкова інформація по місячному звіту</summary>
 
-            <ul>
-              <li>По банках — дані від бухгалтерії.</li>
-              <li>
-                Monobank — файли з папки на Google Диску,
-                обробляються скриптом.
-              </li>
-              <li>
-                <strong>Надходження у гривні:</strong>{" "}
-                Дата/Час, Валюта, Сума, Призначення.
-                <br />
-                Дата та час можуть зберігатися в одній колонці.
-              </li>
-              <li>
-                <strong>Надходження в валюті:</strong>{" "}
-                Дата/Час, Валюта, Сума, Валюта, Сума, Призначення.
-                <br />
-                Перша валюта та сума — в UAH, друга валюта
-                та сума — в оригінальній валюті.
-              </li>
-            </ul>
+            <div className="info-details-content">
+              <div className="section-description">
+                <p>
+                  vercel.com - server<br />
+                  supabase.com - bd
+                </p>
 
-            <p>
-              <strong>Майнові надходження</strong>
-            </p>
+                <p>
+                  <strong>Надходження коштів</strong>
+                </p>
 
-            <ul>
-              <li>
-                Вигрузка з BAS: Склад → Додаткові обробки →
-                Експорт оприбуткування в JSON.
-              </li>
-              <li>
-                Файл: <strong>property_acts</strong>.
-              </li>
-            </ul>
+                <ul>
+                  <li>По банках — дані від бухгалтерії.</li>
+                  <li>
+                    Monobank — файли з папки на Google Диску,
+                    обробляються скриптом.
+                  </li>
+                  <li>
+                    <strong>Надходження у гривні:</strong>{" "}
+                    Дата/Час, Валюта, Сума, Призначення.
+                    <br />
+                    Дата та час можуть зберігатися в одній колонці.
+                  </li>
+                  <li>
+                    <strong>Надходження в валюті:</strong>{" "}
+                    Дата/Час, Валюта, Сума, Валюта, Сума, Призначення.
+                    <br />
+                    Перша валюта та сума — в UAH, друга валюта
+                    та сума — в оригінальній валюті.
+                  </li>
+                  <li>
+                    <strong>Примітка:</strong> рахунок 2998 — адміністративний рахунок.
+                  </li>
+                </ul>
 
-            <p>
-              <strong>Передача благодійної допомоги</strong>
-            </p>
+                <p>
+                  <strong>Майнові надходження</strong>
+                </p>
 
-            <ul>
-              <li>
-                Вигрузка з BAS — акти видачі:
-                Продажі → Додаткові обробки → Вивантаження
-                расходних накладних.
-                <br />
-                Файл: <strong>act</strong>.
-              </li>
-              <li>
-                Видача основних засобів:
-                ОЗ і НМА → Додаткові обробки →
-                Вивантаження передачі ОС.
-              </li>
-              <li>
-                Не забути додати <strong>грошові перекази</strong> від бухгалтерії.
-              </li>
-            </ul>
+                <ul>
+                  <li>
+                    Вигрузка з BAS: Склад → Додаткові обробки →
+                    Експорт оприбуткування в JSON.
+                  </li>
+                  <li>
+                    Файл: <strong>property_acts</strong>.
+                  </li>
+                </ul>
 
-            <p>
-              <strong>Адміністративні витрати</strong>
-            </p>
+                <p>
+                  <strong>Передача благодійної допомоги</strong>
+                </p>
 
-            <ul>
-              <li>Дані від бухгалтерії.</li>
-            </ul>
+                <ul>
+                  <li>
+                    <strong>Акти видачі:</strong> Продажі → Додаткові обробки →
+                    Вивантаження расходних накладних.
+                  </li>
+                  <li>
+                    Файл: <strong>act</strong>.
+                  </li>
+                  <li>
+                    <strong>Видача основних засобів:</strong> ОЗ і НМА →
+                    Додаткові обробки → Вивантаження передачі ОС.
+                  </li>
+                  <li>
+                    <strong>Не забути додати грошові перекази</strong> — дані від бухгалтерії.
+                  </li>
+                </ul>
 
-            <p>
-              <strong>PayPal</strong>
-            </p>
+                <p>
+                  <strong>Адміністративні витрати</strong>
+                </p>
 
-            <ul>
-              <li>Таблиця з двома колонками.</li>
-            </ul>
-          </div>
+                <ul>
+                  <li>Дані від бухгалтерії.</li>
+                </ul>
+
+                <p>
+                  <strong>PayPal</strong>
+                </p>
+
+                <ul>
+                  <li>Таблиця з двома колонками.</li>
+                </ul>
+              </div>
+            </div>
+          </details>
 
           {/* NAVIGATION */}
           <div className="nav-grid">
