@@ -69,8 +69,40 @@ const styles = `
     padding: 0 20px 15px;
   }
 
-  .nav-grid {
+  .nav-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
     margin-bottom: 18px;
+  }
+
+  .nav-group {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .nav-group-first {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav-group-last {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @media (max-width: 800px) {
+    .nav-group,
+    .nav-group-first {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 520px) {
+    .nav-group,
+    .nav-group-first,
+    .nav-group-last {
+      grid-template-columns: 1fr;
+    }
   }
 `;
 
@@ -230,34 +262,40 @@ export default function Home() {
           </details>
 
           {/* NAVIGATION */}
-          <div className="nav-grid">
-            <a href="/admin/reports" className="nav-card">
-              📅 Публікація звітів
-            </a>
+          <div className="nav-groups">
+            <div className="nav-group nav-group-first">
+              <a href="/admin/reports" className="nav-card">
+                📅 Публікація звітів
+              </a>
 
-            <a href="/admin/donations" className="nav-card">
-              💰 Надходження коштів
-            </a>
+              <a href="/admin/gallery" className="nav-card">
+                📅 Щомісячні галереї
+              </a>
+            </div>
 
-            <a href="/admin/property-acts" className="nav-card">
-              📦 Майнові надходження
-            </a>
+            <div className="nav-group">
+              <a href="/admin/donations" className="nav-card">
+                💰 Надходження коштів
+              </a>
 
-            <a href="/admin/acts" className="nav-card">
-              📄 Акти видачі
-            </a>
+              <a href="/admin/property-acts" className="nav-card">
+                📦 Майнові надходження
+              </a>
 
-            <a href="/admin/expenses" className="nav-card">
-              💰 Адміністративні витрати
-            </a>
+              <a href="/admin/acts" className="nav-card">
+                📄 Акти видачі
+              </a>
 
-            <a href="/admin/gallery" className="nav-card">
-              📅 Щомісячні галереї
-            </a>
+              <a href="/admin/expenses" className="nav-card">
+                💰 Адміністративні витрати
+              </a>
+            </div>
 
-            <a href="/admin/paypal" className="nav-card">
-              💰 PayPal
-            </a>
+            <div className="nav-group nav-group-last">
+              <a href="/admin/paypal" className="nav-card">
+                💰 PayPal
+              </a>
+            </div>
           </div>
 
           <div className="section-description">
