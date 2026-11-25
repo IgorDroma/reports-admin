@@ -261,6 +261,12 @@ export default function Home() {
 
             <div className="info-details-content">
               <div className="section-description">
+                <h3>Вхід у систему</h3>
+                <p>
+                  Вхід до системи: <a href="https://act.monstrov.org/" target="_blank" rel="noreferrer">https://act.monstrov.org/</a>.
+                  Авторизуйтеся через основну корпоративну пошту.
+                </p>
+
                 <p>
                   vercel.com - server<br />
                   supabase.com - bd
