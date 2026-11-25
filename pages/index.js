@@ -264,12 +264,7 @@ export default function Home() {
                 </p>
 
                 <p><strong>Виключення — рядки не додаються, якщо призначення містить такі фрази:</strong></p>
-                <pre className="reference-code"><code>{`const INCASSATION_PREFIXES = [
-  "благодiйнi внески прийнятi черeз касу пiдприємства через касу",
-  "внесення готівки (офіційний збір) благодійного фонду",
-];
-
-const PURPOSE_PREFIXES = [
+                <pre className="reference-code"><code>{`const PURPOSE_PREFIXES = [
   "перерахува",
   "покриття за проведені трансакції згідно договору еквайринга",
 ];`}</code></pre>
