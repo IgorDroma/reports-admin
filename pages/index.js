@@ -107,7 +107,53 @@ const styles = `
   }
 
   .info-details-content {
-    padding: 0 20px 15px;
+    padding: 4px 24px 22px;
+  }
+
+  /* Усередині довідки не створюємо другу картку — лише чіткі розділи */
+  .info-details-content > .section-description {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .info-details-content > .section-description > p:first-child {
+    margin: 8px 0 22px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .info-details-content .section-description h3 {
+    margin: 26px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dbe2ea;
+    color: #263b57;
+    font-size: 18px;
+  }
+
+  .info-details-content .section-description h3:first-of-type {
+    margin-top: 0;
+  }
+
+  .info-details-content .section-description p {
+    margin: 12px 0 7px;
+  }
+
+  .info-details-content .section-description ul {
+    margin: 7px 0 16px;
+  }
+
+  .info-details-content .section-description li {
+    padding-left: 2px;
+    margin-bottom: 8px;
+  }
+
+  @media (max-width: 520px) {
+    .info-details-content {
+      padding: 4px 14px 18px;
+    }
   }
 
   .nav-groups {
@@ -270,6 +316,10 @@ export default function Home() {
                 <ul>
                   <li>перерахува…</li>
                   <li>покриття за проведені трансакції згідно договору еквайринга</li>
+                  <li>
+                    платежі, призначення яких починається зі слів «благодійний платіж на »
+                    та містить фразу «згiдно реєстру» (зазвичай це стосується Monobank).
+                  </li>
                 </ul>
 
                 <h3>Вигрузка з BAS</h3>
