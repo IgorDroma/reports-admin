@@ -257,7 +257,7 @@ export default function Home() {
 
           {/* REFERENCE INFORMATION */}
           <details className="info-details">
-            <summary>📋 Довідкова інформація по місячному звіту</summary>
+            <summary>📋 Довідкова інформація по місячному звіту (оновлено 26.11.2026)</summary>
 
             <div className="info-details-content">
               <div className="section-description">
